@@ -88,7 +88,6 @@ def _load_data_background(token, group_path, epic_id):
     """Run load_data in background thread and update progress."""
     global csv_rows, users, labels, epic_tree
     try:
-        _update_progress("start", 0, "Starting data load...")
         import timetracker
         timetracker.users = []
         timetracker.labels = []
@@ -155,6 +154,7 @@ def load_data(force_refresh=False, token=None, group_path=None, epic_id=None):
         TOKEN = token if token is not None else os.getenv("TOKEN")
         if not GROUP_FULL_PATH or not EPIC_IID or not TOKEN:
             raise ValueError("Missing required parameters: TOKEN, GROUP_FULL_PATH, and EPIC_ROOT_ID")
+        _update_progress("start", 0, "Starting data load...")
         t = threading.Thread(target=_load_data_background, args=(TOKEN, GROUP_FULL_PATH, EPIC_IID), daemon=True)
         t.start()
     return csv_rows

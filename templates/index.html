@@ -394,22 +394,17 @@
         let response = await res.json();
 
         if (response.loading) {
-          const pollInterval = setInterval(async () => {
-            try {
-              const pRes = await fetch('/api/progress');
-              const pData = await pRes.json();
-              progressFill.style.width = pData.pct + '%';
-              progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
-              progressText.textContent = pData.msg || 'Lade Daten...';
-            } catch (e) { /* ignore polling errors */ }
-          }, 500);
-
-          while (response.loading) {
+          while (true) {
             await new Promise(r => setTimeout(r, 1000));
-            res = await fetch(url);
-            response = await res.json();
+            const pRes = await fetch('/api/progress');
+            const pData = await pRes.json();
+            progressFill.style.width = pData.pct + '%';
+            progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
+            progressText.textContent = pData.msg || 'Lade Daten...';
+            if (!pData.loading) break;
           }
-          clearInterval(pollInterval);
+          res = await fetch(url);
+          response = await res.json();
           progressFill.style.width = '100%';
           progressFill.className = 'h-full bg-gradient-to-r from-green-500 to-cyan-600 rounded transition-all duration-500 min-w-[8px]';
           progressText.textContent = 'Fertig!';

@@ -1,3 +1,4 @@
+import json
 import requests
 from dotenv import load_dotenv
 import os
@@ -124,6 +125,39 @@ def _fetch_epic_structure_parallel(group_path, root_iid, token):
     return tuple(root_node)
 
 
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.cache')
+
+
+def _cache_key(group_path, epic_iid):
+    return f"{group_path.replace('/', '_').replace('\\', '_')}_{epic_iid}"
+
+
+def _load_tree_cache(cache_key):
+    cache_file = os.path.join(CACHE_DIR, f"tree_{cache_key}.json")
+    if os.path.exists(cache_file):
+        with open(cache_file, 'r') as f:
+            data = json.load(f)
+        return _deserialize_tree(data)
+    return None
+
+
+def _save_tree_cache(cache_key, tree):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    cache_file = os.path.join(CACHE_DIR, f"tree_{cache_key}.json")
+    with open(cache_file, 'w') as f:
+        json.dump(_serialize_tree(tree), f)
+
+
+def _serialize_tree(node):
+    iid, title, children = node
+    return [iid, title, [_serialize_tree(c) for c in children]]
+
+
+def _deserialize_tree(data):
+    iid, title, children = data
+    return (iid, title, [_deserialize_tree(c) for c in children])
+
+
 def accumulateEpicTree(group_path=None, epic_iid=None, parent_iid=None, token=None, progress_callback=None):
     if progress_callback is None:
         progress_callback = _progress_noop
@@ -144,10 +178,18 @@ def accumulateEpicTree(group_path=None, epic_iid=None, parent_iid=None, token=No
     _users_set.clear()
     _labels_set.clear()
 
-    # Phase 1: discover all epic IIDs and tree structure (lightweight queries)
-    progress_callback("discover", 2, "Discovering epic tree structure...")
-    print("Discovering epic tree structure...")
-    tree_structure = _fetch_epic_structure_parallel(group_path, epic_iid, token)
+    cache_key = _cache_key(group_path, epic_iid)
+    tree_structure = _load_tree_cache(cache_key)
+
+    if tree_structure is None:
+        progress_callback("discover", 2, "Discovering epic tree structure...")
+        print("Discovering epic tree structure...")
+        tree_structure = _fetch_epic_structure_parallel(group_path, epic_iid, token)
+        _save_tree_cache(cache_key, tree_structure)
+        print("Tree structure cached.")
+    else:
+        progress_callback("discover", 2, "Loaded tree structure from cache...")
+        print("Loaded tree structure from cache.")
 
     # Collect all IIDs flat for parallel fetching
     def _collect_iids(node):
