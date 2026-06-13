@@ -49,9 +49,9 @@
       <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6" id="statsGrid"></div>
 
       <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5 mb-6">
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-fire"></i> Top Issues nach Zeitaufwand</h3>
-          <ul class="list-none p-0 m-0" id="topIssuesList"></ul>
+        <div class="bg-white p-5 rounded-lg shadow flex flex-col min-h-0">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600 flex-shrink-0"><i class="fa-solid fa-fire"></i> Top Issues nach Zeitaufwand</h3>
+          <ul class="list-none p-0 m-0 flex-1 min-h-0 overflow-y-auto" id="topIssuesList"></ul>
         </div>
 
         <div class="bg-white p-5 rounded-lg shadow overflow-clip">
@@ -76,14 +76,14 @@
 
         <div class="bg-white p-5 rounded-lg shadow overflow-auto">
           <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-bar"></i> Wöchentliche Berichte</h3>
-          <div class="bg-cyan-50 p-4 rounded shadow-sm">
-            <div class="flex justify-between items-center flex-wrap gap-3 mb-4">
-              <button onclick="generateReport()" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-none rounded cursor-pointer text-sm font-semibold inline-flex items-center gap-2 transition shadow-sm hover:-translate-y-0.5 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none" id="generateReportBtn">
+          <div class="p-5">
+            <div class="flex justify-between items-center flex-wrap gap-3 mb-5">
+              <button onclick="generateReport()" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-none rounded-lg cursor-pointer text-sm font-semibold inline-flex items-center gap-2 transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none" id="generateReportBtn">
                 <i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen
               </button>
-              <p class="text-cyan-700 text-sm italic m-0">Automatische Berichte werden jeden Dienstag um 8:00 Uhr erstellt</p>
+              <p class="text-cyan-500 text-xs italic m-0 flex items-center gap-1.5"><i class="fa-regular fa-clock"></i> Automatische Berichte werden jeden Dienstag um 8:00 Uhr erstellt</p>
             </div>
-            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 max-h-[140px] overflow-y-auto">
+            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 max-h-[300px] overflow-y-auto pr-1">
               <p class="text-center py-4 text-cyan-700">Lade Berichte...</p>
             </div>
           </div>
@@ -989,13 +989,17 @@
           return;
         }
 
-        listDiv.innerHTML = result.reports.map(report => `
-          <div class="bg-cyan-50 border border-cyan-200 rounded p-4 shadow-sm transition cursor-pointer hover:border-cyan-600 hover:shadow hover:-translate-y-0.5" onclick="viewReport('${report.filename}')">
-            <div class="font-semibold text-cyan-900 mb-1.5 text-sm"><i class="fa-regular fa-file"></i> ${report.filename.replace('report_', '').replace('.html', '')}</div>
-            <div class="text-cyan-700 text-xs"><i class="fa-regular fa-calendar"></i> Erstellt: ${report.created}</div>
-            <div class="text-cyan-400 text-xs"><i class="fa-solid fa-chart-bar"></i> Größe: ${(report.size / 1024).toFixed(2)} KB</div>
-          </div>
-        `).join('');
+        listDiv.innerHTML = result.reports.map(report => {
+          const dateStr = report.created.split(' ')[0];
+          return `
+          <div class="bg-gradient-to-br from-white to-cyan-50 border border-cyan-200 rounded-lg p-4 shadow-sm transition-all cursor-pointer hover:border-cyan-500 hover:shadow-md hover:-translate-y-1 border-l-4 border-l-cyan-600" onclick="viewReport('${report.filename}')">
+            <div class="font-semibold text-cyan-900 mb-2 text-sm flex items-center gap-2"><i class="fa-regular fa-file-lines text-cyan-600"></i> Bericht vom ${dateStr}</div>
+            <div class="flex gap-2 text-xs">
+              <span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded"><i class="fa-regular fa-calendar"></i> ${report.created}</span>
+              <span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded"><i class="fa-solid fa-chart-bar"></i> ${(report.size / 1024).toFixed(2)} KB</span>
+            </div>
+          </div>`;
+        }).join('');
 
       } catch (error) {
         console.error('Error loading reports:', error);
