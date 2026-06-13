@@ -3,79 +3,57 @@ import datetime as dt
 
 
 class Issue(Workitem):
-    type="issue"
+    type = "issue"
+
     def __init__(self, title, id):
         super().__init__(title, id)
         self.userTimeMap = {}
+        self.labels = []
 
-    def addTimeSpentByUser(self,time,user,date):
-        """UserTimeMap ist ein Diktionary mit einem Eintrag pro User 
-        und im Eintrag für einen User ist eine Liste von Objekten, die einen Zeitaufwand
-        und ein Datum enthalten"""
-        try:
-            if user in self.userTimeMap.keys():
-                self.userTimeMap[user].append({
-                        'Zeit(Std)':time,
-                        'Datum':date
-                    })
-            else:
-                self.userTimeMap[user] = [{
-                        'Zeit(Std)':time,
-                        'Datum':date
-                    }]
-        except:
-            self.userTimeMap = {user:[{
-                'Zeit(Std)':time,
-                'Datum':date
+    def addTimeSpentByUser(self, time, user, date):
+        if user in self.userTimeMap:
+            self.userTimeMap[user].append({
+                'Zeit(Std)': time,
+                'Datum': date
+            })
+        else:
+            self.userTimeMap[user] = [{
+                'Zeit(Std)': time,
+                'Datum': date
             }]
-            }
-     
-            
 
-    def addLabel(self,label):
-        """Füge ein label der Liste von Labels hinzu"""
-        try:
+    def addLabel(self, label):
+        if label not in self.labels:
             self.labels.append(label)
-        except:
-            self.labels = [label]
-        
 
-    def hasLabel(self,label):
-        try:
-            return label in self.labels
-        except:
-            return False
-        
+    def hasLabel(self, label):
+        return label in self.labels
+
     def getLabels(self):
-        try:
-            return self.labels
-        except:
-            return []
-    def getUserTimesDated(self,user):
-        try:
-            return self.userTimeMap[user]
-        except:
-            return []
-    def getUserTotalTime(self,user):
-        try:
-            return sum([time['Zeit(Std)'] for time in self.userTimeMap[user]])
-        except:
-            return 0
+        return self.labels
+
+    def getUserTimesDated(self, user):
+        return self.userTimeMap.get(user, [])
+
+    def getUserTotalTime(self, user):
+        entries = self.userTimeMap.get(user, [])
+        return sum(e['Zeit(Std)'] for e in entries)
 
     def getUserPercentagesByTime(self):
-        
-        try:
-            if self.hoursSpent < 0.001 and len(self.userTimeMap)==0:
-                return {}
-            userTimes = {}
-            for user in self.userTimeMap:
-                userTimes[user] = self.getUserTotalTime(user)
-            self.hoursSpent = sum((userTimes[user] for user in userTimes ))
-            for user in self.userTimeMap:
-                userTimes[user] /= self.hoursSpent
-            return userTimes
-        except:
+        if not self.userTimeMap:
             return {}
+        userTimes = {}
+        total = 0
+        for user, entries in self.userTimeMap.items():
+            t = sum(e['Zeit(Std)'] for e in entries)
+            userTimes[user] = t
+            total += t
+        if total < 0.001:
+            return {}
+        self.hoursSpent = total
+        for user in userTimes:
+            userTimes[user] /= total
+        return userTimes
         
     if __name__ == "__main__":
         from Issue import Issue

@@ -10,14 +10,36 @@ from timetracker import accumulateEpicTree
 from collections import defaultdict
 import requests
 import json
+import traceback
 from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from google import genai
+import threading
 
 load_dotenv()
 
 app = Flask(__name__)
+
+def _parse_datetime(date_str, tz=None):
+    if not date_str:
+        return None
+    if date_str.endswith('Z'):
+        dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+    elif '+' in date_str or date_str.count('-') > 2:
+        dt = datetime.fromisoformat(date_str)
+    else:
+        dt = datetime.fromisoformat(date_str).replace(tzinfo=tz or datetime.now().astimezone().tzinfo)
+    if dt.tzinfo is None and tz:
+        dt = dt.replace(tzinfo=tz)
+    return dt
+
+
+def _safe_parse_datetime(date_str, tz=None):
+    try:
+        return _parse_datetime(date_str, tz)
+    except Exception:
+        return None
 
 # Configure logging
 if not os.path.exists('logs'):
@@ -51,55 +73,41 @@ users = []
 labels = []
 epic_tree = None
 
-def load_data(force_refresh=False, token=None, group_path=None, epic_id=None):
-    """
-    Load data from GitLab API and build CSV rows structure
-    
-    Parameters:
-    - force_refresh: Force reload from GitLab
-    - token: GitLab Personal Access Token (optional, uses ENV if None)
-    - group_path: GitLab group full path (optional, uses ENV if None)
-    - epic_id: Epic Root IID (optional, uses ENV if None)
-    """
+# Progress tracking
+_load_progress = {"phase": "", "pct": 0, "msg": "", "loading": False, "error": None}
+_load_lock = threading.Lock()
+
+def _update_progress(phase, pct, msg=None):
+    with _load_lock:
+        _load_progress["phase"] = phase
+        _load_progress["pct"] = pct
+        _load_progress["msg"] = msg or phase
+        _load_progress["loading"] = phase not in ("done", "error")
+
+def _load_data_background(token, group_path, epic_id):
+    """Run load_data in background thread and update progress."""
     global csv_rows, users, labels, epic_tree
-    
-    # Always reload if force_refresh is True
-    if force_refresh or epic_tree is None:
-        app.logger.info(f"Loading data - force_refresh={force_refresh}, epic_tree={'None' if epic_tree is None else 'exists'}")
-        print(f"🔄 Fetching fresh data from GitLab...")
-        csv_rows = []
-        users_set = set()
-        labels_set = set()
-        
-        # Use provided parameters or fall back to environment variables
-        GROUP_FULL_PATH = group_path if group_path is not None else os.getenv("GROUP_FULL_PATH")
-        EPIC_IID = epic_id if epic_id is not None else os.getenv("EPIC_ROOT_ID")
-        TOKEN = token if token is not None else os.getenv("TOKEN")
-        
-        if not GROUP_FULL_PATH or not EPIC_IID or not TOKEN:
-            app.logger.error("Missing required parameters for data loading")
-            raise ValueError("Missing required parameters: TOKEN, GROUP_FULL_PATH, and EPIC_ROOT_ID")
-        
-        # Import users and labels from timetracker module
+    try:
+        _update_progress("start", 0, "Starting data load...")
         import timetracker
-        # Clear previous data
         timetracker.users = []
         timetracker.labels = []
         timetracker.csv_rows = []
-        
-        # Build epic tree with explicit parameters
+
         epic_tree = accumulateEpicTree(
-            group_path=GROUP_FULL_PATH,
-            epic_iid=EPIC_IID,
-            token=TOKEN
+            group_path=group_path,
+            epic_iid=epic_id,
+            token=token,
+            progress_callback=_update_progress
         )
         epic_tree.accumulateTimes()
-        
-        # Get users and labels from timetracker module
+
         users = sorted(list(set(timetracker.users)))
         labels = sorted(list(set(timetracker.labels)))
-        
-        # Build rows
+
+        _update_progress("rows", 98, "Building data rows...")
+        csv_rows = []
+
         def build_rows(e):
             parentId = None if (e.parent == None) else e.parent.id
             row = {
@@ -111,32 +119,44 @@ def load_data(force_refresh=False, token=None, group_path=None, epic_id=None):
                 "gesch. Zeitaufwand (h)": round(e.hoursEstimate, 2)
             }
             if e.type == "issue":
-                # Add user percentages
                 user_percentages = e.getUserPercentagesByTime()
                 for user in users:
                     row[user] = round(user_percentages.get(user, 0), 4)
-                # Add labels
                 for label in labels:
                     row[label] = e.hasLabel(label)
-                # Add createdAt and state
                 row["createdAt"] = getattr(e, 'createdAt', None)
-                row["state"] = getattr(e, 'state', 'opened')  # Status hinzufügen
+                row["state"] = getattr(e, 'state', 'opened')
             else:
-                # For epics, set user and label columns to None or 0
                 for user in users:
                     row[user] = 0
                 for label in labels:
                     row[label] = False
                 row["createdAt"] = None
-                row["state"] = None  # Epics haben keinen Status
+                row["state"] = None
             csv_rows.append(row)
             for child in e.children:
                 build_rows(child)
-        
+
         build_rows(epic_tree)
         app.logger.info(f"Data loaded successfully: {len(csv_rows)} items, {len(users)} users, {len(labels)} labels")
-        print(f"✅ Data loaded successfully: {len(csv_rows)} items, {len(users)} users, {len(labels)} labels")
-        
+        _update_progress("done", 100, f"Loaded {len(csv_rows)} items")
+    except Exception as ex:
+        app.logger.error(f"Background load error: {ex}")
+        _update_progress("error", 0, str(ex))
+
+def load_data(force_refresh=False, token=None, group_path=None, epic_id=None):
+    global _load_progress
+    with _load_lock:
+        is_loading = _load_progress["loading"]
+    if (force_refresh or epic_tree is None) and not is_loading:
+        app.logger.info(f"Triggering background load - force_refresh={force_refresh}, epic_tree={'None' if epic_tree is None else 'exists'}")
+        GROUP_FULL_PATH = group_path if group_path is not None else os.getenv("GROUP_FULL_PATH")
+        EPIC_IID = epic_id if epic_id is not None else os.getenv("EPIC_ROOT_ID")
+        TOKEN = token if token is not None else os.getenv("TOKEN")
+        if not GROUP_FULL_PATH or not EPIC_IID or not TOKEN:
+            raise ValueError("Missing required parameters: TOKEN, GROUP_FULL_PATH, and EPIC_ROOT_ID")
+        t = threading.Thread(target=_load_data_background, args=(TOKEN, GROUP_FULL_PATH, EPIC_IID), daemon=True)
+        t.start()
     return csv_rows
 
 def filter_data_by_date(days=None):
@@ -160,27 +180,12 @@ def filter_data_by_date(days=None):
                 for user, time_entries in e.userTimeMap.items():
                     user_total = 0
                     for entry in time_entries:
-                        # Parse the date from 'Datum' field
-                        date_str = entry['Datum']
-                        # Handle both ISO format with Z and without timezone
-                        if date_str.endswith('Z'):
-                            entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                        elif '+' in date_str or date_str.count('-') > 2:
-                            entry_date = datetime.fromisoformat(date_str)
-                        else:
-                            # Assume UTC if no timezone info
-                            entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                        
-                        # Make entry_date timezone-aware if cutoff_date has timezone
-                        if cutoff_date is not None:
-                            if entry_date.tzinfo is None:
-                                entry_date = entry_date.replace(tzinfo=cutoff_date.tzinfo)
-                            
-                            if entry_date >= cutoff_date:
-                                user_total += entry['Zeit(Std)']
-                        else:
+                        entry_date = _safe_parse_datetime(entry['Datum'], cutoff_date.tzinfo if cutoff_date else None)
+                        if entry_date is None:
                             user_total += entry['Zeit(Std)']
-                    
+                        elif cutoff_date is None or entry_date >= cutoff_date:
+                            user_total += entry['Zeit(Std)']
+
                     if user_total > 0:
                         filtered_user_times[user] = user_total
                         filtered_hours_spent += user_total
@@ -266,9 +271,13 @@ def filter_data_by_date(days=None):
 def index():
     return render_template("index.html")
 
+@app.route("/api/progress")
+def get_progress():
+    with _load_lock:
+        return jsonify(dict(_load_progress))
+
 @app.route("/api/data")
 def get_data():
-    """API endpoint to get all data with optional date filtering"""
     try:
         app.logger.info(f"API /api/data called - args: {dict(request.args)}")
         days = request.args.get('days', None)
@@ -276,61 +285,40 @@ def get_data():
         start_date = request.args.get('start_date', None)
         end_date = request.args.get('end_date', None)
         refresh = request.args.get('refresh', 'false').lower() == 'true'
-        mode = request.args.get('mode', 'env')
-        
-        # Get config based on mode
-        if mode == 'local':
-            token = request.args.get('token')
-            group_full_path = request.args.get('group_path')
-            epic_iid = request.args.get('epic_id')
-            repository_name = request.args.get('repo_name', '')
-            
-            if not token or not group_full_path or not epic_iid:
-                raise Exception('Missing required parameters for local mode')
-            
-            # Load data with local parameters
-            if refresh:
-                load_data(force_refresh=True,
-                token=token,
-                group_path=group_full_path,
-                epic_id=epic_iid)
-            elif epic_tree is None:
-                # Load data for the first time
-                load_data(force_refresh=False,
-                token=token,
-                group_path=group_full_path,
-                epic_id=epic_iid)
-           
-        else:
-            # ENV mode
-            group_full_path = os.getenv("GROUP_FULL_PATH", "")
-            repository_name = os.getenv("REPOSITORY_NAME", "")
-            
-            # Only fetch fresh data if explicitly requested via refresh parameter
-            if refresh:
-                load_data(force_refresh=True)
-            elif epic_tree is None:
-                # Load data for the first time
-                load_data(force_refresh=False)
-        
-        # Apply date filtering
+
+        group_full_path = os.getenv("GROUP_FULL_PATH", "")
+        repository_name = os.getenv("REPOSITORY_NAME", "")
+
+        if refresh:
+            load_data(force_refresh=True)
+        elif epic_tree is None:
+            load_data(force_refresh=False)
+
+        # If still loading, return status
+        with _load_lock:
+            still_loading = _load_progress["loading"]
+            load_error = _load_progress["error"]
+        if still_loading and not csv_rows:
+            return jsonify({"success": True, "loading": True, "data": [], "users": [], "labels": []})
+        if load_error and not csv_rows:
+            return jsonify({"success": False, "error": load_error}), 500
+
         if start_date and end_date:
             data = filter_data_by_date_range(start_date, end_date)
         elif days:
             data = filter_data_by_date(days)
         else:
             data = csv_rows
-        
-        # Calculate statistics
+
         issues = [d for d in data if d['Typ'] == 'issue']
         total_spent = sum(d['Zeitaufwand (h)'] for d in issues)
         total_estimated = sum(d['gesch. Zeitaufwand (h)'] for d in issues)
-        
+
         user_stats = {}
         for user in users:
             user_total = sum(d['Zeitaufwand (h)'] * d.get(user, 0) for d in issues)
             user_stats[user] = round(user_total, 2)
-        
+
         label_stats = {}
         for label in labels:
             label_issues = [d for d in issues if d.get(label, False)]
@@ -338,45 +326,31 @@ def get_data():
                 'count': len(label_issues),
                 'hours': round(sum(d['Zeitaufwand (h)'] for d in label_issues), 2)
             }
-        
-        # Calculate creation statistics
+
         target_matrix_labels = ["Entwurf", "Implementation & Test", "Projektmanagement", "Requirements Engineering"]
-        
+
         if start_date and end_date:
             creation_stats = calculate_creation_stats_date_range(issues, start_date, end_date)
             cfd_stats = calculate_cfd_stats_date_range(issues, start_date, end_date)
             label_timeline_stats = calculate_label_timeline_stats_date_range(
-                issues, 
-                target_matrix_labels,
-                start_date, 
-                end_date
+                issues, target_matrix_labels, start_date, end_date
             )
         else:
             creation_stats = calculate_creation_stats(issues, days)
             cfd_stats = calculate_cfd_stats(issues, days)
             label_timeline_stats = calculate_label_timeline_stats(
-                issues, 
-                target_matrix_labels,
-                days
+                issues, target_matrix_labels, days
             )
-            
+
         user_label_matrix = calculate_user_label_matrix(issues, target_matrix_labels, users)
-        
-        # For local mode, use the provided group_path, otherwise from ENV
-        if mode == 'local':
-            response_group_path = group_full_path
-            response_repo_name = repository_name
-        else:
-            response_group_path = os.getenv("GROUP_FULL_PATH", "")
-            response_repo_name = os.getenv("REPOSITORY_NAME", "")
-        
+
         return jsonify({
             "success": True,
             "data": data,
             "users": users,
             "labels": labels,
-            "group_path": response_group_path,
-            "repository_name": response_repo_name,
+            "group_path": group_full_path,
+            "repository_name": repository_name,
             "stats": {
                 "total_spent": round(total_spent, 2),
                 "total_estimated": round(total_estimated, 2),
@@ -389,7 +363,6 @@ def get_data():
             }
         })
     except Exception as e:
-        import traceback
         app.logger.error(f"Error in /api/data: {str(e)}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
@@ -425,20 +398,12 @@ def filter_data_by_date_range(start_date_str, end_date_str):
                 for user, time_entries in e.userTimeMap.items():
                     user_total = 0
                     for entry in time_entries:
-                        date_str = entry['Datum']
-                        if date_str.endswith('Z'):
-                            entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                        elif '+' in date_str or date_str.count('-') > 2:
-                            entry_date = datetime.fromisoformat(date_str)
-                        else:
-                            entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                        
-                        if entry_date.tzinfo is None:
-                            entry_date = entry_date.replace(tzinfo=start_date.tzinfo)
-                        
-                        if start_date <= entry_date <= end_date:
+                        entry_date = _safe_parse_datetime(entry['Datum'], start_date.tzinfo)
+                        if entry_date is None:
                             user_total += entry['Zeit(Std)']
-                    
+                        elif start_date <= entry_date <= end_date:
+                            user_total += entry['Zeit(Std)']
+
                     if user_total > 0:
                         filtered_user_times[user] = user_total
                         filtered_hours_spent += user_total
@@ -528,22 +493,13 @@ def calculate_creation_stats_date_range(issues, start_date_str, end_date_str):
             continue
         
         try:
-            if created_at.endswith('Z'):
-                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-            elif '+' in created_at or created_at.count('-') > 2:
-                created_date = datetime.fromisoformat(created_at)
-            else:
-                created_date = datetime.fromisoformat(created_at).replace(tzinfo=datetime.now().astimezone().tzinfo)
-            
-            if created_date.tzinfo is None:
-                created_date = created_date.replace(tzinfo=start_date.tzinfo)
-            
-            if not (start_date <= created_date <= end_date):
+            created_date = _safe_parse_datetime(created_at, start_date.tzinfo)
+            if created_date is None or not (start_date <= created_date <= end_date):
                 continue
-            
+
             week_start = created_date - timedelta(days=created_date.weekday())
             week_label = week_start.strftime('%Y-%m-%d')
-            
+
             max_user = None
             max_percentage = 0
             for user in users:
@@ -551,13 +507,13 @@ def calculate_creation_stats_date_range(issues, start_date_str, end_date_str):
                 if percentage > max_percentage:
                     max_percentage = percentage
                     max_user = user
-            
+
             if max_user:
                 weekly_stats[week_label][max_user] += 1
             else:
                 weekly_stats[week_label]['Unbekannt'] += 1
-                
-        except Exception as ex:
+
+        except Exception:
             continue
     
     sorted_weeks = sorted(weekly_stats.keys())
@@ -594,19 +550,9 @@ def calculate_cfd_stats_date_range(issues, start_date_str, end_date_str):
                 if hasattr(e, 'userTimeMap'):
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                                
-                                if start_date <= entry_date <= end_date:
-                                    issue_work_dates[issue_id].add(entry_date.strftime('%Y-%m-%d'))
-                            except:
-                                continue
+                            entry_date = _safe_parse_datetime(entry['Datum'], start_date.tzinfo)
+                            if entry_date is not None and start_date <= entry_date <= end_date:
+                                issue_work_dates[issue_id].add(entry_date.strftime('%Y-%m-%d'))
             
             for child in e.children:
                 process_issue(child)
@@ -683,28 +629,14 @@ def calculate_creation_stats(issues, days=None):
             continue
         
         try:
-            # Parse createdAt date
-            if created_at.endswith('Z'):
-                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-            elif '+' in created_at or created_at.count('-') > 2:
-                created_date = datetime.fromisoformat(created_at)
-            else:
-                created_date = datetime.fromisoformat(created_at).replace(tzinfo=datetime.now().astimezone().tzinfo)
-            
-            # Apply date filter
-            if cutoff_date is not None:
-                if created_date.tzinfo is None:
-                    created_date = created_date.replace(tzinfo=cutoff_date.tzinfo)
-                if created_date < cutoff_date:
-                    continue
-            
-            # Get week start (Monday)
+            tz = cutoff_date.tzinfo if cutoff_date else None
+            created_date = _safe_parse_datetime(created_at, tz)
+            if created_date is None or (cutoff_date is not None and created_date < cutoff_date):
+                continue
+
             week_start = created_date - timedelta(days=created_date.weekday())
             week_label = week_start.strftime('%Y-%m-%d')
-            
-            # Count issues per user per week
-            # Note: We don't have creator info in the current data structure
-            # We'll use the primary contributor (user with most time) as proxy
+
             max_user = None
             max_percentage = 0
             for user in users:
@@ -712,14 +644,13 @@ def calculate_creation_stats(issues, days=None):
                 if percentage > max_percentage:
                     max_percentage = percentage
                     max_user = user
-            
+
             if max_user:
                 weekly_stats[week_label][max_user] += 1
             else:
                 weekly_stats[week_label]['Unbekannt'] += 1
-                
-        except Exception as ex:
-            print(f"Error parsing createdAt for issue {issue.get('Titel', 'Unknown')}: {ex}")
+
+        except Exception:
             continue
     
     # Convert to sorted list format
@@ -743,28 +674,19 @@ def calculate_cfd_stats(issues, days=None):
     
     # Determine date range
     if days is None:
-        # Find earliest date from time entries
         all_dates = []
         if epic_tree:
             def collect_dates(e):
                 if e.type == "issue" and hasattr(e, 'userTimeMap'):
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
+                            entry_date = _safe_parse_datetime(entry['Datum'])
+                            if entry_date is not None:
                                 all_dates.append(entry_date)
-                            except:
-                                pass
                 for child in e.children:
                     collect_dates(child)
             collect_dates(epic_tree)
-        
+
         if all_dates:
             cutoff_date = min(all_dates).replace(hour=0, minute=0, second=0, microsecond=0)
         else:
@@ -786,27 +708,17 @@ def calculate_cfd_stats(issues, days=None):
                 issue_id = e.id
                 state = e.state if hasattr(e, 'state') else 'opened'
                 issue_status[issue_id] = state
-                
+
                 if hasattr(e, 'userTimeMap'):
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                                
-                                if cutoff_date <= entry_date <= end_date:
-                                    issue_work_dates[issue_id].add(entry_date.strftime('%Y-%m-%d'))
-                            except:
-                                continue
-            
+                            entry_date = _safe_parse_datetime(entry['Datum'], end_date.tzinfo)
+                            if entry_date is not None and cutoff_date <= entry_date <= end_date:
+                                issue_work_dates[issue_id].add(entry_date.strftime('%Y-%m-%d'))
+
             for child in e.children:
                 process_issue(child)
-        
+
         process_issue(epic_tree)
     
     # Build daily status counts
@@ -874,28 +786,19 @@ def calculate_label_timeline_stats(issues, target_labels, days=None):
     
     # Get date range from epic_tree time entries
     if cutoff_date is None:
-        # Find earliest time entry
         all_dates = []
         if epic_tree:
             def collect_dates(e):
                 if e.type == "issue" and hasattr(e, 'userTimeMap'):
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
+                            entry_date = _safe_parse_datetime(entry['Datum'])
+                            if entry_date is not None:
                                 all_dates.append(entry_date)
-                            except:
-                                pass
                 for child in e.children:
                     collect_dates(child)
             collect_dates(epic_tree)
-        
+
         if all_dates:
             cutoff_date = min(all_dates)
         else:
@@ -915,31 +818,15 @@ def calculate_label_timeline_stats(issues, target_labels, days=None):
                 issue_labels = [label for label in target_labels if e.hasLabel(label)]
                 
                 if issue_labels and hasattr(e, 'userTimeMap'):
-                    # Process each time entry
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                                
-                                if entry_date.tzinfo is None:
-                                    entry_date = entry_date.replace(tzinfo=current_date.tzinfo)
-                                
-                                # Check if this entry is in our date range
-                                if current_date <= entry_date <= end_date:
-                                    day_label = entry_date.strftime('%Y-%m-%d')
-                                    time_hours = entry['Zeit(Std)']
-                                    time_per_label = time_hours / len(issue_labels)
-                                    
-                                    for label in issue_labels:
-                                        daily_label_hours[day_label][label] += time_per_label
-                            except Exception as ex:
-                                continue
+                            entry_date = _safe_parse_datetime(entry['Datum'], current_date.tzinfo)
+                            if entry_date is not None and current_date <= entry_date <= end_date:
+                                day_label = entry_date.strftime('%Y-%m-%d')
+                                time_hours = entry['Zeit(Std)']
+                                time_per_label = time_hours / len(issue_labels)
+                                for label in issue_labels:
+                                    daily_label_hours[day_label][label] += time_per_label
             
             for child in e.children:
                 process_issue(child)
@@ -984,39 +871,22 @@ def calculate_label_timeline_stats_date_range(issues, target_labels, start_date_
     if epic_tree:
         def process_issue(e):
             if e.type == "issue":
-                # Check which labels this issue has
                 issue_labels = [label for label in target_labels if e.hasLabel(label)]
-                
+
                 if issue_labels and hasattr(e, 'userTimeMap'):
-                    # Process each time entry
                     for user, time_entries in e.userTimeMap.items():
                         for entry in time_entries:
-                            try:
-                                date_str = entry['Datum']
-                                if date_str.endswith('Z'):
-                                    entry_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                                elif '+' in date_str or date_str.count('-') > 2:
-                                    entry_date = datetime.fromisoformat(date_str)
-                                else:
-                                    entry_date = datetime.fromisoformat(date_str).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                                
-                                if entry_date.tzinfo is None:
-                                    entry_date = entry_date.replace(tzinfo=start_date.tzinfo)
-                                
-                                # Check if this entry is in our date range
-                                if start_date <= entry_date <= end_date:
-                                    day_label = entry_date.strftime('%Y-%m-%d')
-                                    time_hours = entry['Zeit(Std)']
-                                    time_per_label = time_hours / len(issue_labels)
-                                    
-                                    for label in issue_labels:
-                                        daily_label_hours[day_label][label] += time_per_label
-                            except Exception as ex:
-                                continue
-            
+                            entry_date = _safe_parse_datetime(entry['Datum'], start_date.tzinfo)
+                            if entry_date is not None and start_date <= entry_date <= end_date:
+                                day_label = entry_date.strftime('%Y-%m-%d')
+                                time_hours = entry['Zeit(Std)']
+                                time_per_label = time_hours / len(issue_labels)
+                                for label in issue_labels:
+                                    daily_label_hours[day_label][label] += time_per_label
+
             for child in e.children:
                 process_issue(child)
-        
+
         process_issue(epic_tree)
     
     # Create cumulative timeline
@@ -1077,200 +947,207 @@ def calculate_user_label_matrix(issues, target_labels, users):
             
     return matrix
 
+def _collect_epic_hierarchy(e, indent=0):
+    """Build a readable tree string from the epic tree for the prompt."""
+    lines = []
+    prefix = "  " * indent
+    if e.type == "epic":
+        spent_str = f"{round(e.hoursSpent, 1)}h" if e.hoursSpent else "-"
+        est_str = f"{round(e.hoursEstimate, 1)}h" if e.hoursEstimate else "-"
+        lines.append(f"{prefix}- {e.title} (IID: {e.id}, spent: {spent_str}, estimated: {est_str})")
+    for child in e.children:
+        lines.extend(_collect_epic_hierarchy(child, indent + 1))
+    return lines
+
+
 def generate_weekly_report():
     """Generate weekly project status report using Google Gemini API"""
     try:
         load_data(force_refresh=True)
-        
-        # Ensure reports directory exists
+
         reports_dir = Path("reports")
         reports_dir.mkdir(exist_ok=True)
-        
-        # Get data from last week
+
         last_week_data = filter_data_by_date(7)
         issues = [d for d in last_week_data if d['Typ'] == 'issue']
-        
-        # Calculate statistics
-        total_spent = sum(d['Zeitaufwand (h)'] for d in issues)
-        total_estimated = sum(d['gesch. Zeitaufwand (h)'] for d in issues)
-        
+
+        total_spent = round(sum(d['Zeitaufwand (h)'] for d in issues), 2)
+        total_estimated = round(sum(d['gesch. Zeitaufwand (h)'] for d in issues), 2)
+
         user_stats = {}
         for user in users:
-            user_total = sum(d['Zeitaufwand (h)'] * d.get(user, 0) for d in issues)
-            user_stats[user] = round(user_total, 2)
-        
+            user_total = round(sum(d['Zeitaufwand (h)'] * d.get(user, 0) for d in issues), 2)
+            if user_total > 0:
+                user_stats[user] = user_total
+
         label_stats = {}
         for label in labels:
             label_issues = [d for d in issues if d.get(label, False)]
-            if len(label_issues) > 0:
+            if label_issues:
                 label_stats[label] = {
                     'count': len(label_issues),
                     'hours': round(sum(d['Zeitaufwand (h)'] for d in label_issues), 2)
                 }
-    
-        # Get top issues
-        top_issues = sorted(issues, key=lambda x: x['Zeitaufwand (h)'], reverse=True)[:5]
-        
-        # Calculate issues opened and closed in the last 7 days
+
+        top_issues = sorted(issues, key=lambda x: x['Zeitaufwand (h)'], reverse=True)[:10]
+
         cutoff_date = datetime.now(datetime.now().astimezone().tzinfo) - timedelta(days=7)
         issues_opened_in_period = 0
         issues_closed_in_period = 0
-        
-        # Get all issues (not filtered by time spent, but by creation/close date)
+
         all_data = csv_rows
         all_issues = [d for d in all_data if d['Typ'] == 'issue']
-        
+        active_iids = {d['IID'] for d in issues}
+
         for issue in all_issues:
-            # Check if created in period
             created_at = issue.get('createdAt')
             if created_at:
-                try:
-                    if created_at.endswith('Z'):
-                        created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                    elif '+' in created_at or created_at.count('-') > 2:
-                        created_date = datetime.fromisoformat(created_at)
-                    else:
-                        created_date = datetime.fromisoformat(created_at).replace(tzinfo=datetime.now().astimezone().tzinfo)
-                    
-                    if created_date.tzinfo is None:
-                        created_date = created_date.replace(tzinfo=cutoff_date.tzinfo)
-                    
-                    if created_date >= cutoff_date:
-                        issues_opened_in_period += 1
-                except:
-                    pass
-            
-            # Check if closed in period (we'd need closedAt field for accurate tracking)
-            # For now, we'll count closed issues with time spent in the period as proxy
-            if issue.get('state') == 'closed' and issue.get('Zeitaufwand (h)', 0) > 0:
-                # Check if any time was logged in the period
-                # This is an approximation since we don't have exact close date
-                if issue in issues:  # If it appears in filtered data, it had activity
-                    issues_closed_in_period += 1
-        
-        # Calculate user label matrix
+                created_date = _safe_parse_datetime(created_at, cutoff_date.tzinfo)
+                if created_date is not None and created_date >= cutoff_date:
+                    issues_opened_in_period += 1
+
+            if issue.get('state') == 'closed' and issue.get('IID') in active_iids:
+                issues_closed_in_period += 1
+
         target_matrix_labels = ["Entwurf", "Implementation & Test", "Projektmanagement", "Requirements Engineering"]
         user_label_matrix = calculate_user_label_matrix(issues, target_matrix_labels, users)
 
-        # Prepare data for LLM
-        report_data = {
-            'week': f"KW {datetime.now().isocalendar()[1]}, {datetime.now().year}",
-            'date_range': f"{(datetime.now() - timedelta(days=7)).strftime('%d.%m.%Y')} - {datetime.now().strftime('%d.%m.%Y')}",
-            'total_hours': total_spent,
-            'total_estimated': total_estimated,
-            'progress_percentage': round((total_spent / total_estimated * 100) if total_estimated > 0 else 0, 1),
-            'user_stats': user_stats,
-            'user_label_matrix': user_label_matrix,
-            'top_issues': [
-                {
-                    'title': issue['Titel'],
-                    'iid': issue['IID'],
-                    'hours': issue['Zeitaufwand (h)']
-                }
-                for issue in top_issues
-            ],
-            'total_issues': len(all_issues),
-            'closed_issues': len([i for i in all_issues if i.get('state') == 'closed']),
-            'issues_opened_in_period': issues_opened_in_period,
-            'issues_closed_in_period': issues_closed_in_period
-        }
-        
-        # Call Google Gemini API
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
-        
-        # Create Gemini client
-        client = genai.Client(api_key=gemini_api_key)
-        
-        prompt = f"""Erstelle einen professionellen Projektstatusreport in HTML-Format für die letzte Woche.
+        epic_lines = _collect_epic_hierarchy(epic_tree) if epic_tree else []
 
-Projektdaten:
-- Berichtszeitraum: {report_data['date_range']} ({report_data['week']})
-- Gesamte aufgewendete Zeit: {report_data['total_hours']} Stunden (für diesen Berichtszeitraum)
-- Geschätzte Zeit: {report_data['total_estimated']} Stunden (für die gesamte Projekt Laufzeit)
-- Anzahl offener Issues: {report_data['total_issues'] - report_data['closed_issues']} (gesamt)
-- Anzahl geschlossener Issues: {report_data['closed_issues']} (gesamt)
-- Im Berichtszeitraum geöffnete Issues: {report_data['issues_opened_in_period']}
-- Im Berichtszeitraum geschlossene Issues: {report_data['issues_closed_in_period']}
+        top_issues_detail = []
+        for issue in top_issues:
+            labels_str = ", ".join(l for l in labels if issue.get(l, False))
+            top_issues_detail.append(f"- #{issue['IID']} {issue['Titel']} | {issue['Zeitaufwand (h)']}h | Labels: {labels_str or '-'}")
 
-Zeitverteilung nach Mitarbeitern:
-{json.dumps(report_data['user_stats'], indent=2, ensure_ascii=False)}
+        week_label = f"KW {datetime.now().isocalendar()[1]}, {datetime.now().year}"
+        date_range_str = f"{(datetime.now() - timedelta(days=7)).strftime('%d.%m.%Y')} - {datetime.now().strftime('%d.%m.%Y')}"
 
-Zeitmatrix (Mitarbeiter und Überkategorien):
-{json.dumps(report_data['user_label_matrix'], indent=2, ensure_ascii=False)}
+        user_stats_lines = "\n".join(f"  - {user}: {hours}h" for user, hours in sorted(user_stats.items(), key=lambda x: -x[1]))
+        label_stats_lines = "\n".join(f"  - {label}: {v['hours']}h ({v['count']} Issues)" for label, v in sorted(label_stats.items(), key=lambda x: -x[1]['hours']))
+        matrix_lines = "\n".join(
+            f"  - {user}: " + ", ".join(f"{label}={round(v,1)}h" for label, v in sorted(m.items()) if v)
+            for user, m in sorted(user_label_matrix.items())
+        )
+        epic_hierarchy_str = "\n".join(epic_lines)
 
-Top 5 Issues nach Zeitaufwand:
-{json.dumps(report_data['top_issues'], indent=2, ensure_ascii=False)}
+        prompt = f"""Du bist ein erfahrener Projektleiter. Erstelle einen professionellen, detaillierten Projektstatusreport im HTML-Format.
 
-Erstelle einen gut strukturierten HTML-Report mit:
-1. Überschrift mit Berichtszeitraum
-2. Executive Summary (2-3 Sätze)
-3. Kennzahlen in einem übersichtlichen Layout (inkl. geöffnete/geschlossene Issues im Zeitraum)
-4. Zeitverteilung nach Mitarbeitern (als Tabelle)
-5. Zeitmatrix: Mitarbeiter und Überkategorien (als Tabelle)
-6. Top 5 Issues
-7. Zusammenfassung und Ausblick
+## Projektkontext
+Das Projekt ist eine Lernplattform mit folgenden Epics (Baumstruktur mit aufgewendeter/geschätzter Zeit):
+{epic_hierarchy_str}
 
-Verwende modernes CSS (inline) mit professionellem Design, Farben und guter Lesbarkeit.
-Gib NUR den HTML-Code zurück, ohne Markdown-Formatierung."""
+## Berichtszeitraum
+{date_range_str} ({week_label})
 
-        # Generate content with Gemini
+## Kennzahlen
+- Gesamtzeit (Berichtszeitraum): {total_spent}h
+- Gesamtschätzung (Projekt): {total_estimated}h
+- Fortschritt: {round(total_spent/total_estimated*100,1) if total_estimated else 0}%
+- Offene Issues: {len(all_issues) - len([i for i in all_issues if i.get('state') == 'closed'])} (gesamt)
+- Geschlossene Issues: {len([i for i in all_issues if i.get('state') == 'closed'])} (gesamt)
+- Im Zeitraum geöffnet: {issues_opened_in_period}
+- Im Zeitraum geschlossen: {issues_closed_in_period}
+
+## Zeitverteilung nach Mitarbeitern
+{user_stats_lines}
+
+## Zeitverteilung nach Labels/Kategorien
+{label_stats_lines}
+
+## Matrix: Mitarbeiter x Überkategorien (Stunden)
+{matrix_lines}
+
+## Top 10 Issues nach Zeitaufwand
+{chr(10).join(top_issues_detail)}
+
+## Formatierungsvorgaben
+- Erstelle einen vollständigen, eigenständigen HTML-Bericht mit DOCTYPE, head und body.
+- Style alles mit INLINE-CSS (kein separates <style>, jedes Element bekommt style="...").
+- Farbschema: Teal/Türkis (#0891b2 Primär, #06b6d4 Akzent, #ecfeff Hintergrund).
+- Schrift: 'Segoe UI', system-ui, -apple-system, sans-serif.
+- Verwende weiße Karten (card) mit abgerundeten Ecken und sanften Schatten.
+- Baue für jede Metrik eine optische Karte mit Icon und großem Zahlenwert.
+- Zeige die Mitarbeiter-Zeit als horizontale Balken (div mit prozentualer Breite, teal gefüllt).
+- Die Top-Issues sollen als Liste mit farbigen Labels erscheinen.
+- Füge eine Tabelle für die Mitarbeiter-x-Kategorie-Matrix ein.
+- Verwende für Kategorie-Labels kleine Badges mit Hintergrundfarbe.
+
+## Struktur (Reihenfolge)
+1. Header: Berichtszeitraum, Projektname
+2. Executive Summary (3-4 Sätze mit Einordnung der Zahlen)
+3. Kennzahlen-Karten (4-6 Karten nebeneinander)
+4. Mitarbeiter-Zeit (Balkendiagramm)
+5. Kategorie-Zeit (Tabelle oder Balken)
+6. Matrix: Mitarbeiter x Überkategorien
+7. Top 10 Issues
+8. Zusammenfassung & Ausblick (2-3 Sätze mit Handlungsempfehlungen)
+
+Wichtig: Gib NUR das HTML zurück, ohne Markdown-Umschließung. Kein ```html vorher oder nachher."""
+
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
         try:
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt
             )
-            app.logger.info(f"RESPONSE: {response}")
+            app.logger.info(f"Gemini response received")
         except Exception as e:
             app.logger.error(f"Error in AI response: {e}")
+            return {'success': False, 'error': f"Gemini API error: {e}"}
 
         html_report = response.text
-        app.logger.info(f"HTML REPORT: {html_report}")
 
-        # Clean up markdown code blocks if present
         if html_report.startswith('```html'):
             html_report = html_report.replace('```html', '').replace('```', '').strip()
         elif html_report.startswith('```'):
             html_report = html_report.replace('```', '').strip()
-        
-        # Save report
+
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         filename = f"report_{timestamp}.html"
         filepath = reports_dir / filename
-        
+
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_report)
-        
-        app.logger.info(f"Weekly report generated successfully: {filename}")
-        print(f"✅ Weekly report generated: {filename}")
+
+        app.logger.info(f"Weekly report generated: {filename}")
+        print(f"[OK] Weekly report generated: {filename}")
         return {
             'success': True,
             'filename': filename,
             'filepath': str(filepath),
-            'data': report_data
+            'data': {
+                'week': week_label,
+                'date_range': date_range_str,
+                'total_hours': total_spent,
+                'total_estimated': total_estimated,
+                'user_stats': user_stats,
+                'top_issues': [
+                    {'title': d['Titel'], 'iid': d['IID'], 'hours': d['Zeitaufwand (h)']}
+                    for d in top_issues
+                ],
+                'total_issues': len(all_issues),
+                'closed_issues': len([i for i in all_issues if i.get('state') == 'closed']),
+                'issues_opened_in_period': issues_opened_in_period,
+                'issues_closed_in_period': issues_closed_in_period
+            }
         }
-        
+
     except Exception as e:
         app.logger.error(f"Error generating weekly report: {str(e)}\n{traceback.format_exc()}")
-        print(f"❌ Error generating weekly report: {e}")
-        import traceback
+        print(f"[ERROR] Weekly report generation: {e}")
         traceback.print_exc()
-        return {
-            'success': False,
-            'error': str(e)
-        }
+        return {'success': False, 'error': str(e)}
 
 @app.route("/api/generate-report", methods=['POST'])
 def api_generate_report():
-    """API endpoint to manually trigger report generation"""
     app.logger.info("API /api/generate-report called")
     try:
         result = generate_weekly_report()
+        return jsonify(result)
     except Exception as e:
         app.logger.error(f"Error in /api/generate-report: {e}")
-    
-    return jsonify(result)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route("/api/reports")
 def list_reports():

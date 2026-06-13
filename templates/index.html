@@ -5,1066 +5,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GitLab Time Tracking Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f5f7fa;
-    margin: 0;
-    padding: 20px;
-  }
-  .container {
-    max-width: 1600px;
-    margin: auto;
-  }
-  h1 {
-    color: #333;
-    margin-bottom: 30px;
-  }
-  .header-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    gap: 20px;
-  }
-  .header-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-  }
-  .mode-switch {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: white;
-    padding: 8px 15px;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  .mode-switch label {
-    font-size: 14px;
-    color: #666;
-    font-weight: 500;
-  }
-  .switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-  }
-  .switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-  .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 24px;
-  }
-  .slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-  }
-  input:checked + .slider {
-    background-color: #4CAF50;
-  }
-  input:checked + .slider:before {
-    transform: translateX(26px);
-  }
-  .mode-label {
-    font-size: 13px;
-    font-weight: bold;
-    min-width: 40px;
-  }
-  .mode-label.active {
-    color: #4CAF50;
-  }
-  .edit-config-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    display: none;
-    margin-left: 5px;
-    color: #666;
-    transition: all 0.3s;
-  }
-  .edit-config-btn:hover {
-    color: #4CAF50;
-    transform: scale(1.1);
-  }
-  .edit-config-btn.visible {
-    display: inline-block;
-  }
-  .reload-btn {
-    padding: 10px 15px;
-    background: white;
-    border: 2px solid #4CAF50;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .reload-btn:hover {
-    background: #4CAF50;
-    color: white;
-  }
-  .reload-btn:active {
-    transform: translateY(0);
-  }
-  .reload-btn.loading {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-  .reload-icon {
-    font-size: 18px;
-    display: inline-block;
-    transition: transform 0.3s;
-  }
-  .reload-btn.loading .reload-icon {
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  .modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-  }
-  .modal-content {
-    background-color: white;
-    margin: 10px auto;
-    padding: 30px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 500px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  }
-  .modal-content h2 {
-    margin-top: 0;
-    color: #333;
-  }
-  .form-group {
-    margin-bottom: 20px;
-  }
-  .form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: #555;
-  }
-  .form-group input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    box-sizing: border-box;
-  }
-  .form-group input:focus {
-    outline: none;
-    border-color: #4CAF50;
-  }
-  .modal-buttons {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-top: 25px;
-  }
-  .modal-buttons button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-  }
-  .btn-primary {
-    background: #4CAF50;
-    color: white;
-  }
-  .btn-primary:hover {
-    background: #45a049;
-  }
-  .btn-secondary {
-    background: #e0e0e0;
-    color: #333;
-  }
-  .btn-secondary:hover {
-    background: #d0d0d0;
-  }
-  .filter-bar {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 30px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .filter-bar label {
-    font-weight: bold;
-    color: #555;
-  }
-  .filter-bar button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-    background: #e0e0e0;
-    color: #333;
-  }
-  .filter-bar button:hover {
-    background: #d0d0d0;
-  }
-  .filter-bar button.active {
-    background: #4CAF50;
-    color: white;
-  }
-  .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-  }
-  .chart-container {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    max-height: 650px;
-    overflow: auto;
-  }
-  .chart-container h3 {
-    margin-top: 0;
-    color: #333;
-    border-bottom: 2px solid #4CAF50;
-    padding-bottom: 10px;
-  }
-  canvas {
-    max-width: 100%;
-  }
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
-  }
-  .stat-card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    text-align: center;
-  }
-  .stat-card h4 {
-    margin: 0 0 10px 0;
-    color: #666;
-    font-size: 14px;
-    text-transform: uppercase;
-  }
-  .stat-card .value {
-    font-size: 32px;
-    font-weight: bold;
-    color: #4CAF50;
-  }
-  .top-issues-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .top-issues-list li {
-    padding: 15px;
-    margin-bottom: 10px;
-    background: #f9f9f9;
-    border: 1px solid #4CAF50;
-    border-left: 4px solid #4CAF50;
-    border-radius: 4px;
-    transition: all 0.3s;
-  }
-  .top-issues-list li:hover {
-    background: #e8f5e9;
-    transform: translateX(5px);
-  }
-  .issue-title {
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
-  }
-  .issue-title a {
-    color: #2196F3;
-    text-decoration: none;
-  }
-  .issue-title a:hover {
-    text-decoration: underline;
-  }
-  .issue-meta {
-    display: flex;
-    gap: 15px;
-    font-size: 13px;
-    color: #666;
-  }
-  .issue-hours {
-    font-weight: bold;
-    color: #4CAF50;
-  }
-  .issue-estimate {
-    color: #FF9800;
-  }
-  .issue-iid {
-    color: #9E9E9E;
-  }
-  .user-badges {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-  }
-  .user-badge {
-    display: inline-block;
-    padding: 3px 8px;
-    background: #E3F2FD;
-    border: 1px solid #2196F3;
-    border-radius: 12px;
-    font-size: 11px;
-    color: #1976D2;
-    font-weight: 500;
-  }
-  .loading {
-    text-align: center;
-  }
-  .loader {
-    margin: auto;
-    width: 60px;
-    aspect-ratio: 2;
-    --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000);
-    background: 
-      var(--_g) 0%   50%,
-      var(--_g) 50%  50%,
-      var(--_g) 100% 50%;
-    background-size: calc(100%/3) 50%;
-    animation: l3 1s infinite linear;
-  }
-  @keyframes l3 {
-    20%{background-position:0%   0%, 50%  50%,100%  50%}
-    40%{background-position:0% 100%, 50%   0%,100%  50%}
-    60%{background-position:0%  50%, 50% 100%,100%   0%}
-    80%{background-position:0%  50%, 50%  50%,100% 100%}
-  }
-  .error {
-    background: #ffebee;
-    color: #c62828;
-    padding: 20px;
-    border-radius: 8px;
-    margin: 20px 0;
-  }
-  .section {
-    margin: 30px 0;
-  }
-  h2 {
-    color: #333;
-    border-bottom: 3px solid #4CAF50;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-  }
-  
-  /* Tree Diagram Styles */
-  .tree-container {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 800px;
-  }
-  .tree {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 20px;
-  }
-  .tree-node {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    position: relative;
-    width: 100%;
-  }
-  .tree-node-content {
-    background: white;
-    border: 2px solid #4CAF50;
-    border-radius: 8px;
-    padding: 15px 20px;
-    margin: 10px 0;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    min-width: 250px;
-    max-width: 500px;
-    text-align: left;
-  }
-  .tree-node-content:hover {
-    transform: translateX(5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    background: #e8f5e9;
-  }
-  .tree-node-content.root {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-color: #667eea;
-    font-size: 18px;
-    font-weight: bold;
-  }
-  .tree-node-content.epic {
-    background: #e3f2fd;
-    border-color: #2196F3;
-  }
-  .tree-node-content.epic.expanded {
-    background: #bbdefb;
-  }
-  .tree-node-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-  }
-  .tree-node-meta {
-    font-size: 12px;
-    color: #666;
-  }
-  .tree-node-content.root .tree-node-meta {
-    color: rgba(255,255,255,0.9);
-  }
-  .tree-children {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-top: 10px;
-    margin-left: 30px;
-    width: 100%;
-    gap: 10px;
-  }
-  .tree-line {
-    position: relative;
-    width: 100%;
-  }
-  .tree-line::before {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: -20px;
-    width: 20px;
-    height: 2px;
-    background: #ccc;
-  }
-  .epic-content {
-    display: none;
-    margin-top: 20px;
-    margin-left: 30px;
-    width: calc(100% - 30px);
-  }
-  .epic-content.show {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .child-epics-container {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    flex-wrap: wrap;
-    padding: 20px;
-    /* background: #f5f5f5; */
-    border-radius: 8px;
-    border-left: 4px solid #2196F3;
-  }
-  .child-epics-container.level-1 {
-    border-left-color: #2196F3;
-  }
-  .child-epics-container.level-2 {
-    border-left-color: #2156f3; 
-  }
-  .child-epics-container.level-3 {
-    border-left-color: rgb(33, 79, 243);
-  }
-  .child-epic {
-    flex: 1 1 100px;
-    min-width: 280px;
-    max-width: 450px;
-    display: flex;
-    flex-direction: column;
-  }
-  .child-epic .tree-node-content {
-    margin: 0;
-    width: fit-content;
-  }
-  .child-epic .epic-content {
-    margin-left: 0;
-    width: 100%;
-  }
-  .child-epic .epic-content.show {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-top: 15px;
-    padding-left: 15px;
-  }
-  .issue-list-wrapper {
-    border-radius: 8px;
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .issue-item {
-    background: white;
-    padding: 15px;
-    border-radius: 6px;
-    border-left: 4px solid #4CAF50;
-    box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px;
-    transition: all 0.3s;
-  }
-  .issue-item:hover {
-    transform: translateX(3px);
-    box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px;
-  }
-  .issue-item.done {
-    opacity: 0.5;
-    background: #f5f5f5;
-  }
-  
-  .issue-item.done .issue-item-title {
-    text-decoration: line-through;
-    color: #999;
-  }
-  
-  .top-issues-list li.done {
-    opacity: 0.5;
-    background: #f5f5f5;
-  }
-  
-  .top-issues-list li.done .issue-title a {
-    text-decoration: line-through;
-    color: #999;
-  }
-  
-  .issue-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-  .issue-item-title {
-    font-weight: bold;
-    color: #2196F3;
-    cursor: pointer;
-    flex: 1;
-  }
-  .issue-item-title:hover {
-    text-decoration: underline;
-  }
-  .issue-item-stats {
-    display: flex;
-    gap: 15px;
-    font-size: 13px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-  }
-  .issue-stat {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .issue-stat-label {
-    color: #666;
-  }
-  .issue-stat-value {
-    font-weight: bold;
-  }
-  .issue-stat-value.hours-spent {
-    color: #4CAF50;
-  }
-  .issue-stat-value.hours-estimated {
-    color: #FF9800;
-  }
-  .issue-stat-value.created {
-    color: #9E9E9E;
-  }
-  .issue-contributors {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .contributor-badge {
-    padding: 4px 10px;
-    background: #E3F2FD;
-    border: 1px solid #2196F3;
-    border-radius: 12px;
-    font-size: 11px;
-    color: #1976D2;
-    font-weight: 500;
-  }
-  
-  .date-input {
-    padding: 8px 12px;
-    border: 2px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    transition: border-color 0.3s;
-  }
-  
-  .date-input:focus {
-    outline: none;
-    border-color: #4CAF50;
-  }
-  
-  .date-input:hover {
-    border-color: #999;
-  }
-  
-  /* Reports Section */
-  .reports-section {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px;
-  }
-  
-  .reports-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-  
-  .generate-report-btn {
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.3s;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  }
-  
-  .generate-report-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-  }
-  
-  .generate-report-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
-  .btn-icon {
-    font-size: 18px;
-  }
-  
-  .reports-info {
-    color: #666;
-    font-size: 14px;
-    font-style: italic;
-  }
-  
-  .reports-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
-    max-height: 115px;
-    overflow-y: auto;
-    padding-top: 5px;
-  }
-  
-  .report-card {
-    background: #f9f9f9;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 20px;
-    transition: all 0.3s;
-    cursor: pointer;
-  }
-  
-  .report-card:hover {
-    border-color: #4CAF50;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-  }
-  
-  .report-card-title {
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 8px;
-    font-size: 16px;
-  }
-  
-  .report-card-date {
-    color: #666;
-    font-size: 13px;
-    margin-bottom: 4px;
-  }
-  
-  .report-card-size {
-    color: #999;
-    font-size: 12px;
-  }
-  
-  .report-modal-content {
-    max-width: 1200px;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-  
-  #reportContent {
-    padding: 20px;
-  }
-
-  .matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-    font-size: 13px;
-  }
-  .matrix-table th, .matrix-table td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: center;
-  }
-  .matrix-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-  }
-  .matrix-table th:first-child {
-    min-width: 120px;
-  }
-  .matrix-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-  }
-  .matrix-table tr:hover {
-    background-color: #f1f1f1;
-  }
-  .matrix-value {
-    font-weight: 500;
-  }
-  .matrix-value.zero {
-    color: #ccc;
-  }
-</style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
-<body>
-  <div class="container">
-    <div class="header-section">
-      <h1>⏱️ GitLab Time Tracking Dashboard</h1>
-      <div class="header-controls">
-        <div class="mode-switch">
-          <span class="mode-label" id="envLabel">ENV</span>
-          <label class="switch">
-            <input type="checkbox" id="modeSwitch" onchange="toggleMode()">
-            <span class="slider"></span>
-          </label>
-          <span class="mode-label" id="localLabel">LOCAL</span>
-          <button class="edit-config-btn" id="editConfigBtn" onclick="showConfigModal()" title="Konfiguration bearbeiten">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-            </svg>
-          </button>
-        </div>
-        <button id="reloadBtn" class="reload-btn" onclick="reloadData()">
-          <span class="reload-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-              <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/>
-              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/>
-            </svg>
-          </span>
+<body class="bg-cyan-50 text-cyan-900 antialiased min-h-screen p-6 max-md:p-3">
+  <div class="max-w-[1600px] mx-auto">
+    <div class="flex justify-between items-center mb-6 gap-4 flex-wrap">
+      <h1 class="text-2xl font-bold max-md:text-xl"><i class="fa-regular fa-clock"></i> GitLab Time Tracking Dashboard</h1>
+      <div class="flex items-center gap-3">
+        <button id="reloadBtn" onclick="reloadData()" class="w-[42px] h-[38px] flex-shrink-0 p-2 bg-white border-2 border-cyan-600 rounded text-cyan-600 font-semibold text-sm shadow-sm flex items-center justify-center cursor-pointer hover:bg-cyan-600 hover:text-white transition-all">
+          <i class="fa-solid fa-arrows-rotate"></i>
         </button>
       </div>
     </div>
 
-    <div class="filter-bar">
-      <label>📅 Zeitraum:</label>
-      <button onclick="filterByDays(7)" class="filter-btn active" data-days="7">Letzte 7 Tage</button>
-      <button onclick="filterByDays(14)" class="filter-btn" data-days="14">Letzte 14 Tage</button>
-      <button onclick="filterByDays(30)" class="filter-btn" data-days="30">Letzte 30 Tage</button>
-      <button onclick="filterByDays(null)" class="filter-btn" data-days="all">Alle Tage</button>
-      
-      <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
-        <label>Von:</label>
-        <input type="date" id="startDate" class="date-input">
-        <label>Bis:</label>
-        <input type="date" id="endDate" class="date-input">
-        <button onclick="filterByDateRange()" class="filter-btn" style="background: #2196F3; color: white;">
-          📅 Anwenden
+    <div class="bg-white p-4 rounded-lg shadow mb-6 flex gap-2 items-center flex-wrap">
+      <label class="font-semibold text-cyan-700 text-sm mr-1"><i class="fa-regular fa-calendar"></i> Zeitraum:</label>
+      <button onclick="filterByDays(7, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-600 text-white" data-days="7">Letzte 7 Tage</button>
+      <button onclick="filterByDays(14, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="14">Letzte 14 Tage</button>
+      <button onclick="filterByDays(30, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="30">Letzte 30 Tage</button>
+      <button onclick="filterByDays(null, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="all">Alle Tage</button>
+
+      <div class="ml-auto flex gap-2.5 items-center max-md:ml-0 max-md:w-full">
+        <label class="text-sm">Von:</label>
+        <input type="date" id="startDate" class="px-2.5 py-2 border border-cyan-200 rounded text-sm transition focus:outline-none focus:border-cyan-600 focus:ring-3 focus:ring-cyan-100">
+        <label class="text-sm">Bis:</label>
+        <input type="date" id="endDate" class="px-2.5 py-2 border border-cyan-200 rounded text-sm transition focus:outline-none focus:border-cyan-600 focus:ring-3 focus:ring-cyan-100">
+        <button onclick="filterByDateRange()" class="px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition">
+          <i class="fa-regular fa-calendar"></i> Anwenden
         </button>
       </div>
     </div>
 
-    <div id="loading" class="loading loader"></div>
-    <div id="error" class="error" style="display:none;"></div>
-    
-    <div id="content" style="display:none;">
-      <div class="stats-grid" id="statsGrid"></div>
-      
-      <div class="charts-grid">
-        <div class="chart-container">
-          <h3>🔥 Top Issues nach Zeitaufwand</h3>
-          <ul class="top-issues-list" id="topIssuesList"></ul>
+    <div id="loading" class="text-center py-16 text-cyan-700">
+      <div class="w-full max-w-[400px] h-2 bg-cyan-200 rounded mx-auto my-4 overflow-hidden shadow-inner">
+        <div class="h-full w-0 bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]" id="progressFill"></div>
+      </div>
+      <p class="text-sm m-0" id="loadingText">Daten werden geladen...</p>
+    </div>
+    <div id="error" class="hidden bg-red-50 text-red-600 p-4 rounded border-l-4 border-red-600 my-4 shadow-sm"></div>
+
+    <div id="content" class="hidden">
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6" id="statsGrid"></div>
+
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5 mb-6">
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-fire"></i> Top Issues nach Zeitaufwand</h3>
+          <ul class="list-none p-0 m-0" id="topIssuesList"></ul>
         </div>
-        
-        <div class="chart-container" style="overflow: clip;">
-          <h3>👥 Zeitverteilung nach Benutzer</h3>
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-clip">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-users"></i> Zeitverteilung nach Benutzer</h3>
           <canvas id="userChart"></canvas>
         </div>
-        
-        <div class="chart-container">
-          <h3>📊 Issue Bearbeitung</h3>
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-bar"></i> Issue Bearbeitung</h3>
           <canvas id="cfdChart"></canvas>
         </div>
-        
-        <div class="chart-container">
-          <h3>🏷️ Zeitaufwand nach Labels</h3>
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-tags"></i> Zeitaufwand nach Labels</h3>
           <canvas id="labelChart"></canvas>
         </div>
-        
-        <div class="chart-container">
-          <h3>📈 Zeitentwicklung nach Kategorien</h3>
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-line"></i> Zeitentwicklung nach Kategorien</h3>
           <canvas id="labelTimelineChart"></canvas>
         </div>
-        
-        <div class="chart-container">
-          <h2>📊 Wöchentliche Berichte</h2>
-          <div class="reports-section">
-            <div class="reports-header">
-              <button onclick="generateReport()" class="generate-report-btn" id="generateReportBtn">
-                <span class="btn-icon">📝</span> Bericht jetzt erstellen
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-bar"></i> Wöchentliche Berichte</h3>
+          <div class="bg-cyan-50 p-4 rounded shadow-sm">
+            <div class="flex justify-between items-center flex-wrap gap-3 mb-4">
+              <button onclick="generateReport()" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-none rounded cursor-pointer text-sm font-semibold inline-flex items-center gap-2 transition shadow-sm hover:-translate-y-0.5 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none" id="generateReportBtn">
+                <i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen
               </button>
-              <p class="reports-info">Automatische Berichte werden jeden Dienstag um 8:00 Uhr erstellt</p>
+              <p class="text-cyan-700 text-sm italic m-0">Automatische Berichte werden jeden Dienstag um 8:00 Uhr erstellt</p>
             </div>
-            <div id="reportsList" class="reports-list">
-              <p class="loading">Lade Berichte...</p>
+            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 max-h-[140px] overflow-y-auto">
+              <p class="text-center py-4 text-cyan-700">Lade Berichte...</p>
             </div>
           </div>
         </div>
-        
-        <div class="chart-container" style="grid-column: span 2;">
-          <h3>🧩 Zeitmatrix: Mitarbeiter und Überkategorien</h3>
-          <div id="userLabelMatrixContainer" style="overflow-x: auto;"></div>
+
+        <div class="bg-white p-5 rounded-lg shadow overflow-auto col-span-2">
+          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-puzzle-piece"></i> Zeitmatrix: Mitarbeiter und Überkategorien</h3>
+          <div id="userLabelMatrixContainer" class="overflow-x-auto"></div>
         </div>
-        
       </div>
 
-      <div class="section">
-        <h2>🌳 Projekt Struktur</h2>
-        <div class="tree-container" id="treeContainer"></div>
+      <div class="my-6">
+        <h2 class="text-xl text-cyan-900 border-b-3 border-cyan-600 pb-2.5 mb-5"><i class="fa-solid fa-tree"></i> Projekt Struktur</h2>
+        <div class="bg-white p-6 rounded-lg shadow overflow-auto max-h-[800px]" id="treeContainer"></div>
       </div>
-      
-     
     </div>
   </div>
 
   <!-- Report Modal -->
-  <div id="reportModal" class="modal">
-    <div class="modal-content report-modal-content">
-      <span class="close" onclick="closeReportModal()">&times;</span>
+  <div id="reportModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm justify-center items-start p-10">
+    <div class="bg-white mx-auto p-7 rounded-lg shadow-lg w-[90%] max-w-6xl max-h-[90vh] overflow-y-auto">
+      <span class="float-right text-2xl cursor-pointer hover:text-gray-600" onclick="closeReportModal()">&times;</span>
       <div id="reportContent"></div>
-    </div>
-  </div>
-
-  <!-- Config Modal -->
-  <div id="configModal" class="modal">
-    <div class="modal-content">
-      <h2>🔧 GitLab Konfiguration</h2>
-      <div class="form-group">
-        <label for="gitlabToken">GitLab Personal Access Token:</label>
-        <input type="password" id="gitlabToken" placeholder="glpat-xxxxxxxxxxxx">
-      </div>
-      <div class="form-group">
-        <label for="groupPath">Group Full Path:</label>
-        <input type="text" id="groupPath" placeholder="my-org/my-team">
-      </div>
-      <div class="form-group">
-        <label for="epicId">Epic Root IID:</label>
-        <input type="text" id="epicId" placeholder="123">
-      </div>
-      <div class="form-group">
-        <label for="repoName">Repository Name (optional):</label>
-        <input type="text" id="repoName" placeholder="my-repo">
-      </div>
-      <div class="modal-buttons">
-        <button class="btn-secondary" onclick="closeConfigModal()">Abbrechen</button>
-        <button class="btn-primary" onclick="saveConfig()">Speichern</button>
-      </div>
     </div>
   </div>
 
   <script>
     let currentFilter = 7;
-    let currentDateRange = null; // Neuer State für Datumsbereich
+    let currentDateRange = null;
     let charts = {};
     let gitlabUrl = 'https://gitlab.com';
     let groupPath = '';
     let repositoryName = '';
     let isLoading = false;
-    let currentMode = 'env';
-    let treeData = null;
     let allUsers = [];
 
-    // Initialize mode from localStorage
-    function initMode() {
-      const savedMode = localStorage.getItem('gitlab_mode') || 'env';
-      currentMode = savedMode;
-      const modeSwitch = document.getElementById('modeSwitch');
-      modeSwitch.checked = (savedMode === 'local');
-      updateModeLabels();
-      
-      if (currentMode === 'local') {
-        const config = getLocalConfig();
-        if (!config.token || !config.groupPath || !config.epicId) {
-          showConfigModal();
-        }
+    window.addEventListener('click', function(event) {
+      if (event.target == document.getElementById('reportModal')) {
+        closeReportModal();
       }
-    }
-
-    function toggleMode() {
-      const modeSwitch = document.getElementById('modeSwitch');
-      currentMode = modeSwitch.checked ? 'local' : 'env';
-      localStorage.setItem('gitlab_mode', currentMode);
-      updateModeLabels();
-      
-      if (currentMode === 'local') {
-        const config = getLocalConfig();
-        if (!config.token || !config.groupPath || !config.epicId) {
-          showConfigModal();
-          return;
-        }
-      }
-      
-      reloadData();
-    }
-
-    function updateModeLabels() {
-      const envLabel = document.getElementById('envLabel');
-      const localLabel = document.getElementById('localLabel');
-      const editBtn = document.getElementById('editConfigBtn');
-      
-      if (currentMode === 'env') {
-        envLabel.classList.add('active');
-        localLabel.classList.remove('active');
-        editBtn.classList.remove('visible');
-      } else {
-        envLabel.classList.remove('active');
-        localLabel.classList.add('active');
-        editBtn.classList.add('visible');
-      }
-    }
-
-    function getLocalConfig() {
-      return {
-        token: localStorage.getItem('gitlab_token') || '',
-        groupPath: localStorage.getItem('gitlab_group_path') || '',
-        epicId: localStorage.getItem('gitlab_epic_id') || '',
-        repoName: localStorage.getItem('gitlab_repo_name') || ''
-      };
-    }
-
-    function showConfigModal() {
-      const modal = document.getElementById('configModal');
-      const config = getLocalConfig();
-      
-      document.getElementById('gitlabToken').value = config.token;
-      document.getElementById('groupPath').value = config.groupPath;
-      document.getElementById('epicId').value = config.epicId;
-      document.getElementById('repoName').value = config.repoName;
-      
-      modal.style.display = 'block';
-    }
-
-    function closeConfigModal() {
-      const modal = document.getElementById('configModal');
-      modal.style.display = 'none';
-      
-      const config = getLocalConfig();
-      if (currentMode === 'local' && (!config.token || !config.groupPath || !config.epicId)) {
-        currentMode = 'env';
-        document.getElementById('modeSwitch').checked = false;
-        localStorage.setItem('gitlab_mode', 'env');
-        updateModeLabels();
-      }
-    }
-
-    function saveConfig() {
-      const token = document.getElementById('gitlabToken').value.trim();
-      const groupPath = document.getElementById('groupPath').value.trim();
-      const epicId = document.getElementById('epicId').value.trim();
-      const repoName = document.getElementById('repoName').value.trim();
-      
-      if (!token || !groupPath || !epicId) {
-        alert('Bitte füllen Sie alle Pflichtfelder aus!');
-        return;
-      }
-      
-      localStorage.setItem('gitlab_token', token);
-      localStorage.setItem('gitlab_group_path', groupPath);
-      localStorage.setItem('gitlab_epic_id', epicId);
-      localStorage.setItem('gitlab_repo_name', repoName);
-      
-      closeConfigModal();
-      reloadData();
-    }
-
-    window.onclick = function(event) {
-      const modal = document.getElementById('configModal');
-      if (event.target == modal) {
-        closeConfigModal();
-      }
-    }
+    })
 
     function createCFDChart(cfdStats) {
       if (!cfdStats || !cfdStats.dates || cfdStats.dates.length === 0) {
         return;
       }
-      
+
       const dates = cfdStats.dates.map(d => {
         const date = new Date(d);
         return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
       });
-      
+
       if (charts.cfdChart) charts.cfdChart.destroy();
       const ctx = document.getElementById('cfdChart');
       charts.cfdChart = new Chart(ctx, {
@@ -1110,8 +181,8 @@
           },
           scales: {
             x: {
-              title: { 
-                display: true, 
+              title: {
+                display: true,
                 text: 'Datum',
                 font: { weight: 'bold' }
               },
@@ -1123,8 +194,8 @@
             y: {
               stacked: true,
               beginAtZero: true,
-              title: { 
-                display: true, 
+              title: {
+                display: true,
                 text: 'Anzahl Issues',
                 font: { weight: 'bold' }
               },
@@ -1134,7 +205,7 @@
             }
           },
           plugins: {
-            legend: { 
+            legend: {
               display: true,
               position: 'top',
               labels: {
@@ -1165,21 +236,20 @@
         }
       });
     }
-    
+
     function createLabelTimelineChart(labelTimelineStats) {
       if (!labelTimelineStats || !labelTimelineStats.dates || labelTimelineStats.dates.length === 0) {
         return;
       }
-      
+
       const dates = labelTimelineStats.dates.map(d => {
         const date = new Date(d);
         return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
       });
-      
+
       const labels = labelTimelineStats.labels || [];
       const datasets = [];
-      
-      // Define colors for each label
+
       const labelColors = {
         'Anforderungen': {
           border: 'rgba(33, 150, 243, 1)',
@@ -1206,15 +276,14 @@
           background: 'rgba(233, 30, 99, 0.1)'
         }
       };
-      
-      // Create dataset for each label
+
       labels.forEach(label => {
         const data = labelTimelineStats.data[label] || [];
         const colors = labelColors[label] || {
           border: 'rgba(96, 125, 139, 1)',
           background: 'rgba(96, 125, 139, 0.1)'
         };
-        
+
         datasets.push({
           label: label,
           data: data,
@@ -1227,7 +296,7 @@
           fill: true
         });
       });
-      
+
       if (charts.labelTimelineChart) charts.labelTimelineChart.destroy();
       const ctx = document.getElementById('labelTimelineChart');
       charts.labelTimelineChart = new Chart(ctx, {
@@ -1241,8 +310,8 @@
           maintainAspectRatio: true,
           scales: {
             x: {
-              title: { 
-                display: true, 
+              title: {
+                display: true,
                 text: 'Datum',
                 font: { weight: 'bold' }
               },
@@ -1253,15 +322,15 @@
             },
             y: {
               beginAtZero: true,
-              title: { 
-                display: true, 
+              title: {
+                display: true,
                 text: 'Kumulierte Stunden',
                 font: { weight: 'bold' }
               }
             }
           },
           plugins: {
-            legend: { 
+            legend: {
               display: true,
               position: 'top',
               labels: {
@@ -1297,15 +366,18 @@
         console.log('Already loading data...');
         return;
       }
-      
+
       try {
         isLoading = true;
         updateReloadButton(true);
-        
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('content').style.display = 'none';
-        document.getElementById('error').style.display = 'none';
-        
+
+        const loadingDiv = document.getElementById('loading');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('loadingText');
+        loadingDiv.classList.remove('hidden');
+        document.getElementById('content').classList.add('hidden');
+        document.getElementById('error').classList.add('hidden');
+
         let url = "/api/data";
         const params = [];
         if (days !== null) {
@@ -1314,27 +386,39 @@
         if (forceRefresh) {
           params.push('refresh=true');
         }
-        if (currentMode === 'local') {
-          const config = getLocalConfig();
-          params.push(`mode=local`);
-          params.push(`token=${encodeURIComponent(config.token)}`);
-          params.push(`group_path=${encodeURIComponent(config.groupPath)}`);
-          params.push(`epic_id=${encodeURIComponent(config.epicId)}`);
-          if (config.repoName) {
-            params.push(`repo_name=${encodeURIComponent(config.repoName)}`);
-          }
-        }
         if (params.length > 0) {
           url += '?' + params.join('&');
         }
-        
-        const res = await fetch(url);
-        const response = await res.json();
-        
+
+        let res = await fetch(url);
+        let response = await res.json();
+
+        if (response.loading) {
+          const pollInterval = setInterval(async () => {
+            try {
+              const pRes = await fetch('/api/progress');
+              const pData = await pRes.json();
+              progressFill.style.width = pData.pct + '%';
+              progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
+              progressText.textContent = pData.msg || 'Lade Daten...';
+            } catch (e) { /* ignore polling errors */ }
+          }, 500);
+
+          while (response.loading) {
+            await new Promise(r => setTimeout(r, 1000));
+            res = await fetch(url);
+            response = await res.json();
+          }
+          clearInterval(pollInterval);
+          progressFill.style.width = '100%';
+          progressFill.className = 'h-full bg-gradient-to-r from-green-500 to-cyan-600 rounded transition-all duration-500 min-w-[8px]';
+          progressText.textContent = 'Fertig!';
+        }
+
         if (!response.success) {
           throw new Error(response.error || 'Fehler beim Laden der Daten');
         }
-        
+
         const data = response.data;
         const users = response.users || [];
         const labels = response.labels || [];
@@ -1342,10 +426,10 @@
         groupPath = response.group_path || '';
         repositoryName = response.repository_name || '';
         allUsers = users;
-        
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-        
+
+        loadingDiv.classList.add('hidden');
+        document.getElementById('content').classList.remove('hidden');
+
         createStatsCards(stats);
         createTopIssuesList(data);
         createUserChart(stats.user_stats);
@@ -1354,81 +438,83 @@
         createLabelTimelineChart(stats.label_timeline_stats);
         createUserLabelMatrixTable(stats.user_label_matrix);
         createTreeDiagram(data, users);
-        
+
       } catch (error) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').classList.add('hidden');
         const errorDiv = document.getElementById('error');
         errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-        errorDiv.style.display = 'block';
+        errorDiv.classList.remove('hidden');
         console.error('Error loading data:', error);
       } finally {
         isLoading = false;
         updateReloadButton(false);
       }
     }
-    
+
     function updateReloadButton(loading) {
       const btn = document.getElementById('reloadBtn');
-      
+      const icon = btn.querySelector('.fa-arrows-rotate');
+
       if (loading) {
-        btn.classList.add('loading');
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
         btn.disabled = true;
+        if (icon) icon.classList.add('animate-spin');
       } else {
-        btn.classList.remove('loading');
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
         btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
       }
     }
-    
+
     function reloadData() {
       if (isLoading) return;
-      
-      console.log('🔄 Reloading data from GitLab...');
-      
+      console.log('Reloading data from GitLab...');
       if (currentDateRange) {
         loadDataWithDateRange(currentDateRange.start, currentDateRange.end);
       } else {
         loadData(currentFilter, true);
       }
     }
-    
-    function filterByDays(days) {
+
+    function filterByDays(days, el) {
       currentFilter = days;
-      currentDateRange = null; // Reset date range
-      
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
+      currentDateRange = null;
+
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('bg-cyan-600', 'text-white');
+        btn.classList.add('bg-cyan-50', 'text-cyan-700');
       });
-      event.target.classList.add('active');
-      
-      // Reset date inputs
+      el.classList.remove('bg-cyan-50', 'text-cyan-700');
+      el.classList.add('bg-cyan-600', 'text-white');
+
       document.getElementById('startDate').value = '';
       document.getElementById('endDate').value = '';
-      
+
       loadData(days, false);
     }
 
     function filterByDateRange() {
       const startDate = document.getElementById('startDate').value;
       const endDate = document.getElementById('endDate').value;
-      
+
       if (!startDate || !endDate) {
-        alert('Bitte wählen Sie Start- und Enddatum aus!');
+        alert('Bitte wahlen Sie Start- und Enddatum aus!');
         return;
       }
-      
+
       if (new Date(startDate) > new Date(endDate)) {
         alert('Startdatum muss vor dem Enddatum liegen!');
         return;
       }
-      
+
       currentFilter = null;
       currentDateRange = { start: startDate, end: endDate };
-      
-      // Remove active class from all preset buttons
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
+
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('bg-cyan-600', 'text-white');
+        btn.classList.add('bg-cyan-50', 'text-cyan-700');
       });
-      
+
       loadDataWithDateRange(startDate, endDate);
     }
 
@@ -1437,40 +523,29 @@
         console.log('Already loading data...');
         return;
       }
-      
+
       try {
         isLoading = true;
         updateReloadButton(true);
-        
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('content').style.display = 'none';
-        document.getElementById('error').style.display = 'none';
-        
+
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('content').classList.add('hidden');
+        document.getElementById('error').classList.add('hidden');
+
         let url = "/api/data";
         const params = [];
         params.push(`start_date=${encodeURIComponent(startDate)}`);
         params.push(`end_date=${encodeURIComponent(endDate)}`);
-        
-        if (currentMode === 'local') {
-          const config = getLocalConfig();
-          params.push(`mode=local`);
-          params.push(`token=${encodeURIComponent(config.token)}`);
-          params.push(`group_path=${encodeURIComponent(config.groupPath)}`);
-          params.push(`epic_id=${encodeURIComponent(config.epicId)}`);
-          if (config.repoName) {
-            params.push(`repo_name=${encodeURIComponent(config.repoName)}`);
-          }
-        }
-        
+
         url += '?' + params.join('&');
-        
+
         const res = await fetch(url);
         const response = await res.json();
-        
+
         if (!response.success) {
           throw new Error(response.error || 'Fehler beim Laden der Daten');
         }
-        
+
         const data = response.data;
         const users = response.users || [];
         const labels = response.labels || [];
@@ -1478,10 +553,10 @@
         groupPath = response.group_path || '';
         repositoryName = response.repository_name || '';
         allUsers = users;
-        
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-        
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('content').classList.remove('hidden');
+
         createStatsCards(stats);
         createTopIssuesList(data);
         createUserChart(stats.user_stats);
@@ -1490,12 +565,12 @@
         createLabelTimelineChart(stats.label_timeline_stats);
         createUserLabelMatrixTable(stats.user_label_matrix);
         createTreeDiagram(data, users);
-        
+
       } catch (error) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').classList.add('hidden');
         const errorDiv = document.getElementById('error');
         errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-        errorDiv.style.display = 'block';
+        errorDiv.classList.remove('hidden');
         console.error('Error loading data:', error);
       } finally {
         isLoading = false;
@@ -1505,70 +580,69 @@
 
     function createStatsCards(stats) {
       const grid = document.getElementById('statsGrid');
-      
+
       let progressCard = '';
-      
+
       if (currentFilter === null && currentDateRange === null) {
-        // Show progress percentage only for "Alle Daten"
         progressCard = `
-          <div class="stat-card">
-            <h4>Fortschritt</h4>
-            <div class="value">${stats.total_estimated > 0 ? Math.round((stats.total_spent / stats.total_estimated) * 100) : 0}%</div>
+          <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
+            <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Fortschritt</h4>
+            <div class="text-3xl font-bold text-cyan-600">${stats.total_estimated > 0 ? Math.round((stats.total_spent / stats.total_estimated) * 100) : 0}%</div>
           </div>
         `;
       } else {
-        // Show created issues count for filtered data
-        const createdCount = stats.creation_stats ? 
-          Object.values(stats.creation_stats.user_data).reduce((sum, counts) => 
+        const createdCount = stats.creation_stats ?
+          Object.values(stats.creation_stats.user_data).reduce((sum, counts) =>
             sum + counts.reduce((a, b) => a + b, 0), 0
           ) : 0;
-        
+
         progressCard = `
-          <div class="stat-card">
-            <h4>Erstellte Issues</h4>
-            <div class="value">${createdCount}</div>
+          <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
+            <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Erstellte Issues</h4>
+            <div class="text-3xl font-bold text-cyan-600">${createdCount}</div>
           </div>
         `;
       }
-      
+
       grid.innerHTML = `
-        <div class="stat-card">
-          <h4>Gesamte aufgewendete Zeit</h4>
-          <div class="value">${stats.total_spent} h</div>
+        <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
+          <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Gesamte aufgewendete Zeit</h4>
+          <div class="text-3xl font-bold text-cyan-600">${stats.total_spent} h</div>
         </div>
-        <div class="stat-card">
-          <h4>Gesamte geschätzte Zeit</h4>
-          <div class="value">${stats.total_estimated} h</div>
+        <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
+          <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Gesamte geschätzte Zeit</h4>
+          <div class="text-3xl font-bold text-cyan-600">${stats.total_estimated} h</div>
         </div>
         ${progressCard}
       `;
     }
-    
+
     function createTopIssuesList(data) {
       const issues = data.filter(d => d.Typ === 'issue' && d['Zeitaufwand (h)'] > 0);
-      
+
       issues.sort((a, b) => b['Zeitaufwand (h)'] - a['Zeitaufwand (h)']);
-      
+
       const topIssues = issues.slice(0, 10);
-      
+
       const list = document.getElementById('topIssuesList');
       list.innerHTML = '';
-      
+
       topIssues.forEach((issue, index) => {
         const li = document.createElement('li');
-        
-        // Check if issue is closed/done
+
         const isDone = issue.state === 'closed';
         if (isDone) {
-          li.classList.add('done');
+          li.className = 'p-3.5 mb-2 bg-gray-50 rounded border-l-4 border-cyan-600 shadow-sm opacity-50';
+        } else {
+          li.className = 'p-3.5 mb-2 bg-cyan-50 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:bg-cyan-100 hover:translate-x-1';
         }
-        
+
         const issueUrl = `${gitlabUrl}/${groupPath}${repositoryName ? '/' + repositoryName : ''}/-/issues/${issue.IID}`;
-        
+
         const workingUsers = [];
         for (const key in issue) {
-          if (!['Typ', 'Titel', 'IID', 'Parent IID', 'Zeitaufwand (h)', 'gesch. Zeitaufwand (h)', 'createdAt', 'state'].includes(key) 
-              && typeof issue[key] === 'number' 
+          if (!['Typ', 'Titel', 'IID', 'Parent IID', 'Zeitaufwand (h)', 'gesch. Zeitaufwand (h)', 'createdAt', 'state'].includes(key)
+              && typeof issue[key] === 'number'
               && issue[key] > 0) {
             workingUsers.push({
               name: key,
@@ -1576,35 +650,37 @@
             });
           }
         }
-        
+
         workingUsers.sort((a, b) => b.percentage - a.percentage);
-        
-        const userBadgesHtml = workingUsers.length > 0 
-          ? `<div class="user-badges">
-               ${workingUsers.map(u => `<span class="user-badge">${u.name.replace(/ .*/,'')} (${(u.percentage * 100).toFixed(0)}%)</span>`).join('')}
+
+        const userBadgesHtml = workingUsers.length > 0
+          ? `<div class="flex gap-1 flex-wrap mt-2">
+               ${workingUsers.map(u => `<span class="inline-block px-2.5 py-0.5 bg-cyan-100 border border-cyan-500 rounded-full text-xs text-cyan-700 font-medium">${u.name.replace(/ .*/,'')} (${(u.percentage * 100).toFixed(0)}%)</span>`).join('')}
              </div>`
           : '';
-        
+
+        const titleClass = isDone ? 'font-semibold text-cyan-900 mb-1 line-through text-cyan-400' : 'font-semibold text-cyan-900 mb-1';
+
         li.innerHTML = `
-          <div class="issue-title">
-            ${index + 1}. <a href="${issueUrl}" target="_blank">#${issue.IID} ${issue.Titel}</a>
+          <div class="${titleClass}">
+            ${index + 1}. <a href="${issueUrl}" target="_blank" class="text-cyan-500 no-underline hover:underline">#${issue.IID} ${issue.Titel}</a>
           </div>
-          <div class="issue-meta">
-            <span class="issue-hours">⏱️ ${issue['Zeitaufwand (h)']} h verbracht</span>
-            <span class="issue-estimate">📊 ${issue['gesch. Zeitaufwand (h)']} h geschätzt</span>
-            <span class="issue-iid">ID: ${issue.IID}</span>
+          <div class="flex gap-3.5 text-sm text-cyan-700 flex-wrap">
+            <span class="font-semibold text-cyan-600"><i class="fa-regular fa-clock"></i> ${issue['Zeitaufwand (h)']} h verbraucht</span>
+            <span class="font-semibold text-amber-500"><i class="fa-regular fa-chart-bar"></i> ${issue['gesch. Zeitaufwand (h)']} h geschätzt</span>
+            <span class="text-cyan-400">ID: ${issue.IID}</span>
           </div>
           ${userBadgesHtml}
         `;
-        
+
         list.appendChild(li);
       });
     }
-    
+
     function createUserChart(userStats) {
       const users = Object.keys(userStats).filter(u => userStats[u] > 0);
       const hours = users.map(u => userStats[u]);
-      
+
       if (charts.userChart) charts.userChart.destroy();
       const ctx = document.getElementById('userChart');
       charts.userChart = new Chart(ctx, {
@@ -1642,13 +718,13 @@
         }
       });
     }
-    
+
     function createLabelChart(labelStats) {
       const labels = Object.keys(labelStats).filter(l => labelStats[l].hours > 0);
       const hours = labels.map(l => labelStats[l].hours);
-      
+
       const shortLabels = labels.map(l => l.split(' ')[0]);
-      
+
       const colors = [
         'rgba(255, 99, 132, 0.7)',
         'rgba(54, 162, 235, 0.7)',
@@ -1659,10 +735,10 @@
         'rgba(199, 199, 199, 0.7)',
         'rgba(83, 102, 255, 0.7)',
       ];
-      
+
       const backgroundColors = labels.map((_, index) => colors[index % colors.length]);
       const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
-      
+
       if (charts.labelChart) charts.labelChart.destroy();
       const ctx = document.getElementById('labelChart');
       charts.labelChart = new Chart(ctx, {
@@ -1682,7 +758,7 @@
           maintainAspectRatio: true,
           indexAxis: 'y',
           scales: {
-            x: { 
+            x: {
               beginAtZero: true,
               title: { display: true, text: 'Stunden' }
             }
@@ -1703,41 +779,35 @@
         }
       });
     }
-        
+
     function createTreeDiagram(data, users) {
       const container = document.getElementById('treeContainer');
-      
-      // Build tree structure
+
       const root = data.find(d => d.Typ === 'epic' && d['Parent IID'] === null);
       if (!root) {
-        container.innerHTML = '<p>Keine Root-Epic gefunden</p>';
+        container.innerHTML = '<p class="text-cyan-700">Keine Root-Epic gefunden</p>';
         return;
       }
-      
-      // Filter nur Top-Level Epics (direkt unter Root)
+
       const topLevelEpics = data.filter(d => d.Typ === 'epic' && d['Parent IID'] === root.IID);
       const allEpics = data.filter(d => d.Typ === 'epic' && d.IID !== root.IID);
       const issues = data.filter(d => d.Typ === 'issue');
-      
-      // Helper function to get direct child epics
+
       function getChildEpics(parentIid) {
         return allEpics.filter(e => e['Parent IID'] === parentIid);
       }
-      
-      // Helper function to get direct issues under an epic
+
       function getDirectIssues(epicIid) {
         return issues.filter(i => i['Parent IID'] === epicIid);
       }
-      
-      // Helper function to get all issues recursively
+
       function getAllIssuesForEpic(epicIid) {
         const directIssues = getDirectIssues(epicIid);
         const childEpics = getChildEpics(epicIid);
         const childIssues = childEpics.flatMap(childEpic => getAllIssuesForEpic(childEpic.IID));
         return [...directIssues, ...childIssues];
       }
-      
-      // Helper function to count child epics recursively
+
       function countChildEpics(epicIid) {
         const directChildren = getChildEpics(epicIid);
         let count = directChildren.length;
@@ -1746,13 +816,12 @@
         });
         return count;
       }
-      
-      // Helper function to render an issue
+
       function renderIssue(issue) {
         const issueUrl = `${gitlabUrl}/${groupPath}${repositoryName ? '/' + repositoryName : ''}/-/issues/${issue.IID}`;
         const createdDate = issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('de-DE') : 'N/A';
         const isDone = issue.state === 'closed';
-        
+
         const contributors = [];
         allUsers.forEach(user => {
           const percentage = issue[user];
@@ -1764,200 +833,201 @@
           }
         });
         contributors.sort((a, b) => b.percentage - a.percentage);
-        
-        return `<div class="issue-item${isDone ? ' done' : ''}">
-                  <div class="issue-item-header">
-                    <div class="issue-item-title" onclick="window.open('${issueUrl}', '_blank')">
+
+        const itemClass = isDone
+          ? 'bg-white p-3 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:translate-x-1 hover:shadow opacity-50 bg-gray-50'
+          : 'bg-white p-3 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:translate-x-1 hover:shadow';
+
+        const titleClass = isDone
+          ? 'font-semibold text-cyan-500 cursor-pointer flex-1 line-through text-cyan-400'
+          : 'font-semibold text-cyan-500 cursor-pointer flex-1 hover:underline';
+
+        return `<div class="${itemClass}">
+                  <div class="flex justify-between items-center mb-2">
+                    <div class="${titleClass}" onclick="window.open('${issueUrl}', '_blank')">
                       #${issue.IID} ${issue.Titel}
                     </div>
                   </div>
-                  <div class="issue-item-stats">
-                    <div class="issue-stat">
-                      <span class="issue-stat-label">📅 Erstellt:</span>
-                      <span class="issue-stat-value created">${createdDate}</span>
+                  <div class="flex gap-3 text-xs flex-wrap">
+                    <div class="flex items-center gap-1">
+                      <span class="text-cyan-700"><i class="fa-regular fa-calendar"></i> Erstellt:</span>
+                      <span class="font-semibold text-cyan-400">${createdDate}</span>
                     </div>
-                    <div class="issue-stat">
-                      <span class="issue-stat-label">⏱️ Verbracht:</span>
-                      <span class="issue-stat-value hours-spent">${issue['Zeitaufwand (h)']} h</span>
+                    <div class="flex items-center gap-1">
+                      <span class="text-cyan-700"><i class="fa-regular fa-clock"></i> Verbracht:</span>
+                      <span class="font-semibold text-cyan-600">${issue['Zeitaufwand (h)']} h</span>
                     </div>
-                    <div class="issue-stat">
-                      <span class="issue-stat-label">📊 Geplant:</span>
-                      <span class="issue-stat-value hours-estimated">${issue['gesch. Zeitaufwand (h)']} h</span>
+                    <div class="flex items-center gap-1">
+                      <span class="text-cyan-700"><i class="fa-regular fa-chart-bar"></i> Geplant:</span>
+                      <span class="font-semibold text-amber-500">${issue['gesch. Zeitaufwand (h)']} h</span>
                     </div>
-                    ${isDone ? '<div class="issue-stat"><span class="issue-stat-label">✅ Status:</span><span class="issue-stat-value">Closed</span></div>' : ''}
+                    ${isDone ? '<div class="flex items-center gap-1"><span class="text-cyan-700"><i class="fa-solid fa-check"></i> Status:</span><span class="font-semibold">Closed</span></div>' : ''}
                   </div>
                   ${contributors.length > 0 ? `
-                    <div class="issue-contributors">
-                      ${contributors.map(c => 
-                        `<span class="contributor-badge">${c.name.split(' ')[0]} (${(c.percentage * 100).toFixed(0)}%)</span>`
+                    <div class="flex gap-1.5 flex-wrap mt-1.5">
+                      ${contributors.map(c =>
+                        `<span class="px-2.5 py-0.5 bg-cyan-100 border border-cyan-500 rounded-full text-xs text-cyan-700 font-medium">${c.name.split(' ')[0]} (${(c.percentage * 100).toFixed(0)}%)</span>`
                       ).join('')}
                     </div>
                   ` : ''}
                 </div>`;
       }
-      
-      // Helper function to render child epics recursively
+
       function renderChildEpics(parentIid, level = 1) {
         const childEpics = getChildEpics(parentIid);
         if (childEpics.length === 0) return '';
-        
-        let html = `<div class="child-epics-container level-${level}">`;
-        
+
+        let html = `<div class="flex flex-col gap-3 py-3 pl-3 border-l-3 border-cyan-500">`;
+
         childEpics.forEach(childEpic => {
           const directIssues = getDirectIssues(childEpic.IID);
           const subChildEpics = getChildEpics(childEpic.IID);
           const totalIssues = getAllIssuesForEpic(childEpic.IID);
           const childEpicCount = countChildEpics(childEpic.IID);
-          
-          html += `<div class="child-epic">
-                     <div class="tree-node-content epic" onclick="toggleEpic(${childEpic.IID})">
-                       <div class="tree-node-title">📁 ${childEpic.Titel}</div>
-                       <div class="tree-node-meta">
+
+          html += `<div class="flex flex-col">
+                     <div class="bg-white border border-cyan-600 rounded p-3 cursor-pointer transition-all shadow-sm hover:translate-x-1 hover:shadow hover:bg-cyan-100 tree-node-content" onclick="toggleEpic(${childEpic.IID})">
+                       <div class="font-semibold mb-0.5"><i class="fa-regular fa-folder"></i> ${childEpic.Titel}</div>
+                       <div class="text-xs text-cyan-700">
                          ${childEpicCount > 0 ? `${childEpicCount} Child-Epic${childEpicCount > 1 ? 's' : ''} | ` : ''}
                          ${totalIssues.length} Issue${totalIssues.length !== 1 ? 's' : ''}
                        </div>
-                       <div class="tree-node-meta">
+                       <div class="text-xs text-cyan-700">
                          ${childEpic['Zeitaufwand (h)']} h / ${childEpic['gesch. Zeitaufwand (h)']} h
                        </div>
                      </div>
-                     <div class="epic-content" id="epic-${childEpic.IID}">`;
-      
-      // Render sub-child epics if any
-      if (subChildEpics.length > 0) {
-        html += renderChildEpics(childEpic.IID, level + 1);
-      }
-      
-      // Render direct issues
-      if (directIssues.length > 0) {
-        html += `<div class="issue-list-wrapper">`;
-        directIssues.forEach(issue => {
-          html += renderIssue(issue);
+                     <div class="hidden flex-col gap-3 mt-2" id="epic-${childEpic.IID}">`;
+
+          if (subChildEpics.length > 0) {
+            html += renderChildEpics(childEpic.IID, level + 1);
+          }
+
+          if (directIssues.length > 0) {
+            html += `<div class="flex flex-col gap-2">`;
+            directIssues.forEach(issue => {
+              html += renderIssue(issue);
+            });
+            html += `</div>`;
+          }
+
+          html += `</div></div>`;
         });
+
         html += `</div>`;
+        return html;
       }
-      
-      html += `</div></div>`;
-    });
-    
-    html += `</div>`;
-    return html;
-  }
-  
-  // Create root node
-  const repoName = groupPath.split('/').pop() || 'Repository';
-  let html = '<div class="tree">';
-  html += '<div class="tree-node">';
-  html += `<div class="tree-node-content root">
-              <div class="tree-node-title">📦 ${repoName}</div>
-              <div class="tree-node-meta">${root.Titel}</div>
-              <div class="tree-node-meta">${root['Zeitaufwand (h)']} h / ${root['gesch. Zeitaufwand (h)']} h</div>
-           </div>`;
-  
-  // Add top-level epics only
-  if (topLevelEpics.length > 0) {
-    html += '<div class="tree-children">';
-    topLevelEpics.forEach(epic => {
-      const totalIssues = getAllIssuesForEpic(epic.IID);
-      const directIssues = getDirectIssues(epic.IID);
-      const childEpicCount = countChildEpics(epic.IID);
-      
-      html += '<div class="tree-node tree-line">';
-      html += `<div class="tree-node-content epic" onclick="toggleEpic(${epic.IID})">
-                  <div class="tree-node-title">📁 ${epic.Titel}</div>
-                  <div class="tree-node-meta">
-                    ${childEpicCount > 0 ? `${childEpicCount} Child-Epic${childEpicCount > 1 ? 's' : ''} | ` : ''}
-                    ${totalIssues.length} Issue${totalIssues.length !== 1 ? 's' : ''}
-                  </div>
-                  <div class="tree-node-meta">
-                    ${epic['Zeitaufwand (h)']} h / ${epic['gesch. Zeitaufwand (h)']} h
-                  </div>
+
+      const repoName = groupPath.split('/').pop() || 'Repository';
+      let html = '<div class="flex flex-col gap-1">';
+      html += '<div class="flex flex-col w-full">';
+      html += `<div class="bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-transparent rounded p-3 shadow-sm font-bold text-base">
+                  <div class="font-semibold mb-0.5"><i class="fa-solid fa-box"></i> ${repoName}</div>
+                  <div class="text-xs text-white/85">${root.Titel}</div>
+                  <div class="text-xs text-white/85">${root['Zeitaufwand (h)']} h / ${root['gesch. Zeitaufwand (h)']} h</div>
                </div>`;
-      
-      html += `<div class="epic-content" id="epic-${epic.IID}">`;
-      
-      // Render child epics
-      html += renderChildEpics(epic.IID, 1);
-      
-      // Render direct issues
-      if (directIssues.length > 0) {
-        html += `<div class="issue-list-wrapper">`;
-        directIssues.forEach(issue => {
-          html += renderIssue(issue);
+
+      if (topLevelEpics.length > 0) {
+        html += '<div class="flex flex-col ml-6 border-l-2 border-cyan-200 pl-4 gap-1">';
+        topLevelEpics.forEach(epic => {
+          const totalIssues = getAllIssuesForEpic(epic.IID);
+          const directIssues = getDirectIssues(epic.IID);
+          const childEpicCount = countChildEpics(epic.IID);
+
+          html += '<div class="flex flex-col">';
+          html += `<div class="bg-cyan-100 border border-cyan-500 rounded p-3 cursor-pointer transition-all shadow-sm hover:translate-x-1 hover:shadow hover:bg-cyan-100 tree-node-content" onclick="toggleEpic(${epic.IID})">
+                      <div class="font-semibold mb-0.5"><i class="fa-regular fa-folder"></i> ${epic.Titel}</div>
+                      <div class="text-xs text-cyan-700">
+                        ${childEpicCount > 0 ? `${childEpicCount} Child-Epic${childEpicCount > 1 ? 's' : ''} | ` : ''}
+                        ${totalIssues.length} Issue${totalIssues.length !== 1 ? 's' : ''}
+                      </div>
+                      <div class="text-xs text-cyan-700">
+                        ${epic['Zeitaufwand (h)']} h / ${epic['gesch. Zeitaufwand (h)']} h
+                      </div>
+                   </div>`;
+
+          html += `<div class="hidden flex-col gap-3 mt-2" id="epic-${epic.IID}">`;
+
+          html += renderChildEpics(epic.IID, 1);
+
+          if (directIssues.length > 0) {
+            html += `<div class="flex flex-col gap-2">`;
+            directIssues.forEach(issue => {
+              html += renderIssue(issue);
+            });
+            html += `</div>`;
+          }
+
+          html += '</div>';
+          html += '</div>';
         });
-        html += `</div>`;
+        html += '</div>';
       }
-      
-      html += '</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-  
-  html += '</div></div>';
-  container.innerHTML = html;
-}
 
-function toggleEpic(epicId) {
-  const epicContent = document.getElementById(`epic-${epicId}`);
-  const epicNode = epicContent.previousElementSibling;
-  
-  if (epicContent.classList.contains('show')) {
-    epicContent.classList.remove('show');
-    epicNode.classList.remove('expanded');
-  } else {
-    epicContent.classList.add('show');
-    epicNode.classList.add('expanded');
-  }
-}
+      html += '</div></div>';
+      container.innerHTML = html;
+    }
 
-    // Reports functionality
+    function toggleEpic(epicId) {
+      const epicContent = document.getElementById(`epic-${epicId}`);
+      const epicNode = epicContent.previousElementSibling;
+
+      if (epicContent.classList.contains('flex')) {
+        epicContent.classList.remove('flex', 'flex-col', 'gap-3', 'mt-2');
+        epicContent.classList.add('hidden');
+        epicNode.classList.remove('!bg-blue-100');
+      } else {
+        epicContent.classList.remove('hidden');
+        epicContent.classList.add('flex', 'flex-col', 'gap-3', 'mt-2');
+        epicNode.classList.add('!bg-blue-100');
+      }
+    }
+
     async function loadReports() {
       try {
         const response = await fetch('/api/reports');
         const result = await response.json();
-        
+
         const listDiv = document.getElementById('reportsList');
-        
+
         if (!result.success || result.reports.length === 0) {
-          listDiv.innerHTML = '<p class="loading">Keine Berichte vorhanden</p>';
+          listDiv.innerHTML = '<p class="text-center py-4 text-cyan-700">Keine Berichte vorhanden</p>';
           return;
         }
-        
+
         listDiv.innerHTML = result.reports.map(report => `
-          <div class="report-card" onclick="viewReport('${report.filename}')">
-            <div class="report-card-title">📄 ${report.filename.replace('report_', '').replace('.html', '')}</div>
-            <div class="report-card-date">📅 Erstellt: ${report.created}</div>
-            <div class="report-card-size">📊 Größe: ${(report.size / 1024).toFixed(2)} KB</div>
+          <div class="bg-cyan-50 border border-cyan-200 rounded p-4 shadow-sm transition cursor-pointer hover:border-cyan-600 hover:shadow hover:-translate-y-0.5" onclick="viewReport('${report.filename}')">
+            <div class="font-semibold text-cyan-900 mb-1.5 text-sm"><i class="fa-regular fa-file"></i> ${report.filename.replace('report_', '').replace('.html', '')}</div>
+            <div class="text-cyan-700 text-xs"><i class="fa-regular fa-calendar"></i> Erstellt: ${report.created}</div>
+            <div class="text-cyan-400 text-xs"><i class="fa-solid fa-chart-bar"></i> Größe: ${(report.size / 1024).toFixed(2)} KB</div>
           </div>
         `).join('');
-        
+
       } catch (error) {
         console.error('Error loading reports:', error);
-        document.getElementById('reportsList').innerHTML = '<p class="loading">Fehler beim Laden der Berichte</p>';
+        document.getElementById('reportsList').innerHTML = '<p class="text-center py-4 text-cyan-700">Fehler beim Laden der Berichte</p>';
       }
     }
-    
+
     async function generateReport() {
       const btn = document.getElementById('generateReportBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span class="btn-icon">⏳</span> Bericht wird erstellt...';
-      
-      try {        
+      btn.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Bericht wird erstellt...';
+
+      try {
         const response = await fetch('/api/generate-report', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           }
         });
-        
-        // Check if response is ok
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Server error: ${response.status} - ${errorText}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
           alert('✅ Bericht erfolgreich erstellt!');
           loadReports();
@@ -1969,17 +1039,18 @@ function toggleEpic(epicId) {
         alert('❌ Fehler beim Erstellen des Berichts: ' + error.message);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon">📝</span> Bericht jetzt erstellen';
+        btn.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen';
       }
     }
-    
+
     function viewReport(filename) {
       const modal = document.getElementById('reportModal');
       const contentDiv = document.getElementById('reportContent');
-      
-      contentDiv.innerHTML = '<p style="text-align: center;">Lade Bericht...</p>';
-      modal.style.display = 'block';
-      
+
+      contentDiv.innerHTML = '<p class="text-center">Lade Bericht...</p>';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
       fetch(`/reports/${filename}`)
         .then(response => response.text())
         .then(html => {
@@ -1987,22 +1058,16 @@ function toggleEpic(epicId) {
         })
         .catch(error => {
           console.error('Error loading report:', error);
-          contentDiv.innerHTML = '<p style="text-align: center; color: red;">Fehler beim Laden des Berichts</p>';
+          contentDiv.innerHTML = '<p class="text-center text-red-600">Fehler beim Laden des Berichts</p>';
         });
     }
-    
+
     function closeReportModal() {
-      document.getElementById('reportModal').style.display = 'none';
-    }
-    
-    // Close modal when clicking outside
-    window.onclick = function(event) {
       const modal = document.getElementById('reportModal');
-      if (event.target == modal) {
-        closeReportModal();
-      }
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
     }
-    
+
     function createUserLabelMatrixTable(matrix) {
       const container = document.getElementById('userLabelMatrixContainer');
       if (!matrix || Object.keys(matrix).length === 0) {
@@ -2011,41 +1076,36 @@ function toggleEpic(epicId) {
       }
 
       const users = Object.keys(matrix).sort();
-      // Get all unique labels from the first user (assuming all users have same labels keys)
       const labels = Object.keys(matrix[users[0]] || {}).sort();
 
-      let html = '<table class="matrix-table">';
-      
-      // Header row
-      html += '<thead><tr><th>User</th>';
+      let html = '<table class="w-full border-collapse text-sm">';
+
+      html += '<thead><tr><th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">User</th>';
       labels.forEach(label => {
-        html += `<th>${label}</th>`;
+        html += `<th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">${label}</th>`;
       });
-      html += '<th>Gesamt</th></tr></thead>';
-      
-      // Body rows
+      html += '<th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">Gesamt</th></tr></thead>';
+
       html += '<tbody>';
       users.forEach(user => {
         let userTotal = 0;
-        html += `<tr><td style="font-weight:bold;">${user}</td>`;
-        
+        html += `<tr><td class="border border-cyan-200 p-2 text-left font-bold">${user}</td>`;
+
         labels.forEach(label => {
           const value = matrix[user][label] || 0;
           userTotal += value;
           const displayValue = value > 0 ? value.toFixed(2) + ' h' : '-';
-          const classNames = value === 0 ? 'matrix-value zero' : 'matrix-value';
+          const classNames = value === 0 ? 'border border-cyan-200 p-2 text-center font-medium text-cyan-400' : 'border border-cyan-200 p-2 text-center font-medium';
           html += `<td class="${classNames}">${displayValue}</td>`;
         });
-        
-        html += `<td style="font-weight:bold;">${userTotal.toFixed(2)} h</td></tr>`;
+
+        html += `<td class="border border-cyan-200 p-2 text-center font-bold">${userTotal.toFixed(2)} h</td></tr>`;
       });
       html += '</tbody></table>';
-      
+
       container.innerHTML = html;
     }
 
-    // Initialize and load data on page load
-    initMode();
     loadData(currentFilter, false);
     loadReports();
   </script>
