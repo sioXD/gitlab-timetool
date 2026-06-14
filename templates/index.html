@@ -7,1140 +7,156 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="bg-cyan-50 text-cyan-900 antialiased min-h-screen p-6 max-md:p-3">
-  <div class="max-w-[1600px] mx-auto">
-    <div class="flex justify-between items-center mb-6 gap-4 flex-wrap">
-      <h1 class="text-2xl font-bold max-md:text-xl"><i class="fa-regular fa-clock"></i> GitLab Time Tracking Dashboard</h1>
+<body class="bg-[#E0E5EC] text-[#3D4852] antialiased min-h-screen p-6 max-md:p-3">
+
+  <div class="max-w-[1600px] mx-auto flex flex-col gap-5">
+
+    <!-- Header -->
+    <header class="neu-card p-6 max-md:p-4 flex justify-between items-center gap-4 flex-wrap">
+      <h1 class="font-display font-extrabold text-2xl max-md:text-xl tracking-tight text-[#3D4852]">
+        <i class="fa-regular fa-clock text-[#6C63FF]"></i> GitLab Time Tracking
+      </h1>
       <div class="flex items-center gap-3">
-        <button id="reloadBtn" onclick="reloadData()" class="w-[42px] h-[38px] flex-shrink-0 p-2 bg-white border-2 border-cyan-600 rounded text-cyan-600 font-semibold text-sm shadow-sm flex items-center justify-center cursor-pointer hover:bg-cyan-600 hover:text-white transition-all">
+        <button id="reloadBtn" onclick="reloadData()" class="neu-btn-icon" aria-label="Daten neu laden">
           <i class="fa-solid fa-arrows-rotate"></i>
         </button>
       </div>
-    </div>
+    </header>
 
-    <div class="bg-white p-4 rounded-lg shadow mb-6 flex gap-2 items-center flex-wrap">
-      <label class="font-semibold text-cyan-700 text-sm mr-1"><i class="fa-regular fa-calendar"></i> Zeitraum:</label>
-      <button onclick="filterByDays(7, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-600 text-white" data-days="7">Letzte 7 Tage</button>
-      <button onclick="filterByDays(14, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="14">Letzte 14 Tage</button>
-      <button onclick="filterByDays(30, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="30">Letzte 30 Tage</button>
-      <button onclick="filterByDays(null, this)" class="period-btn px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium transition bg-cyan-50 text-cyan-700 hover:bg-gray-200" data-days="all">Alle Tage</button>
+    <!-- Filter Bar -->
+    <div class="neu-card p-5 max-md:p-3 flex gap-2 items-center flex-wrap">
+      <span class="font-display font-semibold text-sm text-[#3D4852] mr-1">
+        <i class="fa-regular fa-calendar text-[#6C63FF]"></i> Zeitraum:
+      </span>
+      <button onclick="filterByDays(7, this)" class="neu-period-btn active" data-days="7">Letzte 7 Tage</button>
+      <button onclick="filterByDays(14, this)" class="neu-period-btn" data-days="14">Letzte 14 Tage</button>
+      <button onclick="filterByDays(30, this)" class="neu-period-btn" data-days="30">Letzte 30 Tage</button>
+      <button onclick="filterByDays(null, this)" class="neu-period-btn" data-days="all">Alle Tage</button>
 
-      <div class="ml-auto flex gap-2.5 items-center max-md:ml-0 max-md:w-full">
-        <label class="text-sm">Von:</label>
-        <input type="date" id="startDate" class="px-2.5 py-2 border border-cyan-200 rounded text-sm transition focus:outline-none focus:border-cyan-600 focus:ring-3 focus:ring-cyan-100">
-        <label class="text-sm">Bis:</label>
-        <input type="date" id="endDate" class="px-2.5 py-2 border border-cyan-200 rounded text-sm transition focus:outline-none focus:border-cyan-600 focus:ring-3 focus:ring-cyan-100">
-        <button onclick="filterByDateRange()" class="px-4 py-2 border-none rounded-full cursor-pointer text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition">
+      <div class="ml-auto flex gap-2.5 items-center max-md:ml-0 max-md:w-full max-md:mt-2">
+        <label class="text-sm text-[#6B7280] font-medium">Von:</label>
+        <input type="date" id="startDate" class="neu-input px-3 py-2 text-sm w-[140px] max-md:w-full">
+        <label class="text-sm text-[#6B7280] font-medium">Bis:</label>
+        <input type="date" id="endDate" class="neu-input px-3 py-2 text-sm w-[140px] max-md:w-full">
+        <button onclick="filterByDateRange()" class="neu-btn-primary px-5 py-2 text-sm font-semibold inline-flex items-center gap-2">
           <i class="fa-regular fa-calendar"></i> Anwenden
         </button>
       </div>
     </div>
 
-    <div id="loading" class="text-center py-16 text-cyan-700">
-      <div class="w-full max-w-[400px] h-2 bg-cyan-200 rounded mx-auto my-4 overflow-hidden shadow-inner">
-        <div class="h-full w-0 bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]" id="progressFill"></div>
+    <!-- Loading -->
+    <div id="loading" class="text-center py-20 max-md:py-12 hidden">
+      <div class="neu-progress-track w-full max-w-[420px] h-3 mx-auto my-5">
+        <div class="neu-progress-fill" id="progressFill" style="width:0%"></div>
       </div>
-      <p class="text-sm m-0" id="loadingText">Daten werden geladen...</p>
+      <p class="text-sm text-[#6B7280] font-medium" id="loadingText">Daten werden geladen...</p>
     </div>
-    <div id="error" class="hidden bg-red-50 text-red-600 p-4 rounded border-l-4 border-red-600 my-4 shadow-sm"></div>
 
-    <div id="content" class="hidden">
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6" id="statsGrid"></div>
+    <!-- Error -->
+    <div id="error" class="hidden neu-inset p-5 rounded-2xl text-red-500 text-sm font-medium"></div>
 
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5 mb-6">
-        <div class="bg-white p-5 rounded-lg shadow flex flex-col min-h-0">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600 flex-shrink-0"><i class="fa-solid fa-fire"></i> Top Issues nach Zeitaufwand</h3>
-          <ul class="list-none p-0 m-0 flex-1 min-h-0 overflow-y-auto" id="topIssuesList"></ul>
+    <!-- Content -->
+    <div id="content" class="hidden flex flex-col gap-5">
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5" id="statsGrid"></div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
+
+        <!-- Top Issues -->
+        <div class="neu-card p-6 max-md:p-5 flex flex-col max-md:h-[360px]">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-fire text-[#6C63FF]"></i> Top Issues nach Zeitaufwand
+          </h3>
+          <ul class="list-none p-0 m-0 flex-1 overflow-y-auto min-h-0" id="topIssuesList"></ul>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-clip">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-users"></i> Zeitverteilung nach Benutzer</h3>
+        <!-- User Chart -->
+        <div class="neu-card p-6 max-md:p-5 overflow-clip">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-users text-[#6C63FF]"></i> Zeitverteilung nach Benutzer
+          </h3>
           <canvas id="userChart"></canvas>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-bar"></i> Issue Bearbeitung</h3>
+        <!-- CFD Chart -->
+        <div class="neu-card p-6 max-md:p-5 overflow-auto">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-chart-bar text-[#6C63FF]"></i> Issue Bearbeitung
+          </h3>
           <canvas id="cfdChart"></canvas>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-tags"></i> Zeitaufwand nach Labels</h3>
+        <!-- Label Chart -->
+        <div class="neu-card p-6 max-md:p-5 overflow-auto">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-tags text-[#6C63FF]"></i> Zeitaufwand nach Labels
+          </h3>
           <canvas id="labelChart"></canvas>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-line"></i> Zeitentwicklung nach Kategorien</h3>
+        <!-- Label Timeline -->
+        <div class="neu-card p-6 max-md:p-5 overflow-auto">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-chart-line text-[#6C63FF]"></i> Zeitentwicklung nach Kategorien
+          </h3>
           <canvas id="labelTimelineChart"></canvas>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-chart-bar"></i> Wöchentliche Berichte</h3>
-          <div class="p-5">
-            <div class="flex justify-between items-center flex-wrap gap-3 mb-5">
-              <button onclick="generateReport()" class="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-none rounded-lg cursor-pointer text-sm font-semibold inline-flex items-center gap-2 transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none" id="generateReportBtn">
+        <!-- Reports -->
+        <div class="neu-card p-6 max-md:p-5 flex flex-col h-[420px] max-md:h-[360px]">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-file-lines text-[#6C63FF]"></i> Wöchentliche Berichte
+          </h3>
+          <div class="flex flex-col gap-4 flex-1 min-h-0">
+            <div class="flex justify-between items-center flex-wrap gap-3 flex-shrink-0">
+              <button onclick="generateReport()" class="neu-btn-primary px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" id="generateReportBtn">
                 <i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen
               </button>
-              <p class="text-cyan-500 text-xs italic m-0 flex items-center gap-1.5"><i class="fa-regular fa-clock"></i> Automatische Berichte werden jeden Dienstag um 8:00 Uhr erstellt</p>
+              <p class="text-xs text-[#8B95A5] italic m-0 flex items-center gap-1.5">
+                <i class="fa-regular fa-clock"></i> Automatische Berichte jeden Dienstag um 8:00 Uhr
+              </p>
             </div>
-            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 max-h-[300px] overflow-y-auto pr-1">
-              <p class="text-center py-4 text-cyan-700">Lade Berichte...</p>
+            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 overflow-y-auto min-h-0 pr-1">
+              <p class="text-center py-6 text-[#6B7280]">Lade Berichte...</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-lg shadow overflow-auto col-span-2">
-          <h3 class="m-0 mb-4 text-base text-cyan-900 pb-2.5 border-b-2 border-cyan-600"><i class="fa-solid fa-puzzle-piece"></i> Zeitmatrix: Mitarbeiter und Überkategorien</h3>
+        <!-- User-Label Matrix -->
+        <div class="neu-card p-6 max-md:p-5 overflow-auto col-span-2">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-puzzle-piece text-[#6C63FF]"></i> Zeitmatrix: Mitarbeiter und Überkategorien
+          </h3>
           <div id="userLabelMatrixContainer" class="overflow-x-auto"></div>
         </div>
       </div>
 
-      <div class="my-6">
-        <h2 class="text-xl text-cyan-900 border-b-3 border-cyan-600 pb-2.5 mb-5"><i class="fa-solid fa-tree"></i> Projekt Struktur</h2>
-        <div class="bg-white p-6 rounded-lg shadow overflow-auto max-h-[800px]" id="treeContainer"></div>
+      <!-- Tree Diagram -->
+      <div class="neu-card p-6 max-md:p-5 my-2">
+        <h2 class="font-display font-bold text-xl text-[#3D4852] mb-5 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+          <i class="fa-solid fa-tree text-[#6C63FF]"></i> Projekt Struktur
+        </h2>
+        <div class="overflow-auto max-h-[600px]" id="treeContainer"></div>
       </div>
     </div>
   </div>
 
   <!-- Report Modal -->
-  <div id="reportModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm justify-center items-start p-10">
-    <div class="bg-white mx-auto p-7 rounded-lg shadow-lg w-[90%] max-w-6xl max-h-[90vh] overflow-y-auto">
-      <span class="float-right text-2xl cursor-pointer hover:text-gray-600" onclick="closeReportModal()">&times;</span>
+  <div id="reportModal" class="hidden fixed inset-0 z-50 neu-modal-overlay justify-center items-start p-6 max-md:p-3">
+    <div class="neu-card mx-auto p-8 max-md:p-5 w-[92%] max-w-6xl max-h-[90vh] overflow-y-auto mt-10 max-md:mt-4">
+      <div class="flex justify-end mb-2">
+        <button onclick="closeReportModal()" class="neu-btn-icon w-10 h-10 text-sm" aria-label="Schließen">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
       <div id="reportContent"></div>
     </div>
   </div>
 
-  <script>
-    let currentFilter = 7;
-    let currentDateRange = null;
-    let charts = {};
-    let gitlabUrl = 'https://gitlab.com';
-    let groupPath = '';
-    let repositoryName = '';
-    let isLoading = false;
-    let allUsers = [];
-
-    window.addEventListener('click', function(event) {
-      if (event.target == document.getElementById('reportModal')) {
-        closeReportModal();
-      }
-    })
-
-    function createCFDChart(cfdStats) {
-      if (!cfdStats || !cfdStats.dates || cfdStats.dates.length === 0) {
-        return;
-      }
-
-      const dates = cfdStats.dates.map(d => {
-        const date = new Date(d);
-        return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
-      });
-
-      if (charts.cfdChart) charts.cfdChart.destroy();
-      const ctx = document.getElementById('cfdChart');
-      charts.cfdChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: [
-            {
-              label: 'Done',
-              data: cfdStats.done,
-              backgroundColor: 'rgba(76, 175, 80, 0.6)',
-              borderColor: 'rgba(76, 175, 80, 1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4
-            },
-            {
-              label: 'In Progress',
-              data: cfdStats.in_progress,
-              backgroundColor: 'rgba(255, 193, 7, 0.6)',
-              borderColor: 'rgba(255, 193, 7, 1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4
-            },
-            {
-              label: 'To Do',
-              data: cfdStats.todo,
-              backgroundColor: 'rgba(238, 75, 43, 0.6)',
-              borderColor: 'rgba(238, 75, 43, 1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          interaction: {
-            mode: 'index',
-            intersect: false
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Datum',
-                font: { weight: 'bold' }
-              },
-              ticks: {
-                maxRotation: 45,
-                minRotation: 45
-              }
-            },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Anzahl Issues',
-                font: { weight: 'bold' }
-              },
-              ticks: {
-                stepSize: 1
-              }
-            }
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top',
-              labels: {
-                usePointStyle: true,
-                padding: 15
-              }
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false,
-              callbacks: {
-                title: function(context) {
-                  return context[0].label;
-                },
-                label: function(context) {
-                  return context.dataset.label + ': ' + context.parsed.y + ' Issues';
-                },
-                footer: function(tooltipItems) {
-                  const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
-                  return 'Gesamt: ' + total + ' Issues';
-                }
-              }
-            },
-            filler: {
-              propagate: true
-            }
-          }
-        }
-      });
-    }
-
-    function createLabelTimelineChart(labelTimelineStats) {
-      if (!labelTimelineStats || !labelTimelineStats.dates || labelTimelineStats.dates.length === 0) {
-        return;
-      }
-
-      const dates = labelTimelineStats.dates.map(d => {
-        const date = new Date(d);
-        return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
-      });
-
-      const labels = labelTimelineStats.labels || [];
-      const datasets = [];
-
-      const labelColors = {
-        'Anforderungen': {
-          border: 'rgba(33, 150, 243, 1)',
-          background: 'rgba(33, 150, 243, 0.1)'
-        },
-        'Dokumentation': {
-          border: 'rgba(156, 39, 176, 1)',
-          background: 'rgba(156, 39, 176, 0.1)'
-        },
-        'Entwurf': {
-          border: 'rgba(0, 188, 212, 1)',
-          background: 'rgba(0, 188, 212, 0.1)'
-        },
-        'Implementation & Test': {
-          border: 'rgba(76, 175, 80, 1)',
-          background: 'rgba(76, 175, 80, 0.1)'
-        },
-        'Projektmanagement': {
-          border: 'rgba(255, 152, 0, 1)',
-          background: 'rgba(255, 152, 0, 0.1)'
-        },
-        'Requirements Engineering': {
-          border: 'rgba(233, 30, 99, 1)',
-          background: 'rgba(233, 30, 99, 0.1)'
-        }
-      };
-
-      labels.forEach(label => {
-        const data = labelTimelineStats.data[label] || [];
-        const colors = labelColors[label] || {
-          border: 'rgba(96, 125, 139, 1)',
-          background: 'rgba(96, 125, 139, 0.1)'
-        };
-
-        datasets.push({
-          label: label,
-          data: data,
-          borderColor: colors.border,
-          backgroundColor: colors.background,
-          borderWidth: 3,
-          pointRadius: 2,
-          pointBackgroundColor: colors.border,
-          tension: 0.3,
-          fill: true
-        });
-      });
-
-      if (charts.labelTimelineChart) charts.labelTimelineChart.destroy();
-      const ctx = document.getElementById('labelTimelineChart');
-      charts.labelTimelineChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: datasets
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Datum',
-                font: { weight: 'bold' }
-              },
-              ticks: {
-                maxRotation: 45,
-                minRotation: 45
-              }
-            },
-            y: {
-              beginAtZero: true,
-              title: {
-                display: true,
-                text: 'Kumulierte Stunden',
-                font: { weight: 'bold' }
-              }
-            }
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top',
-              labels: {
-                usePointStyle: true,
-                padding: 15
-              }
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false,
-              callbacks: {
-                label: function(context) {
-                  return context.dataset.label + ': ' + context.parsed.y + ' h';
-                },
-                footer: function(tooltipItems) {
-                  const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
-                  return 'Gesamt: ' + total.toFixed(2) + ' h';
-                }
-              }
-            }
-          },
-          interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
-          }
-        }
-      });
-    }
-
-    async function loadData(days = null, forceRefresh = false) {
-      if (isLoading) {
-        console.log('Already loading data...');
-        return;
-      }
-
-      try {
-        isLoading = true;
-        updateReloadButton(true);
-
-        const loadingDiv = document.getElementById('loading');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('loadingText');
-        loadingDiv.classList.remove('hidden');
-        document.getElementById('content').classList.add('hidden');
-        document.getElementById('error').classList.add('hidden');
-
-        const baseParams = [];
-        if (days !== null) {
-          baseParams.push(`days=${days}`);
-        }
-
-        let fetchUrl = "/api/data";
-        const fetchParams = [...baseParams];
-        if (forceRefresh) {
-          fetchParams.push('refresh=true');
-        }
-        if (fetchParams.length > 0) {
-          fetchUrl += '?' + fetchParams.join('&');
-        }
-
-        let url = "/api/data";
-        if (baseParams.length > 0) {
-          url += '?' + baseParams.join('&');
-        }
-
-        let res = await fetch(fetchUrl);
-        let response = await res.json();
-
-        if (response.loading) {
-          while (true) {
-            await new Promise(r => setTimeout(r, 1000));
-            const pRes = await fetch('/api/progress');
-            const pData = await pRes.json();
-            progressFill.style.width = pData.pct + '%';
-            progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
-            progressText.textContent = pData.msg || 'Lade Daten...';
-            if (!pData.loading) break;
-          }
-          res = await fetch(url);
-          response = await res.json();
-          progressFill.style.width = '100%';
-          progressFill.className = 'h-full bg-gradient-to-r from-green-500 to-cyan-600 rounded transition-all duration-500 min-w-[8px]';
-          progressText.textContent = 'Fertig!';
-        }
-
-        if (!response.success) {
-          throw new Error(response.error || 'Fehler beim Laden der Daten');
-        }
-
-        const data = response.data;
-        const users = response.users || [];
-        const labels = response.labels || [];
-        const stats = response.stats || {};
-        groupPath = response.group_path || '';
-        repositoryName = response.repository_name || '';
-        allUsers = users;
-
-        loadingDiv.classList.add('hidden');
-        document.getElementById('content').classList.remove('hidden');
-
-        createStatsCards(stats);
-        createTopIssuesList(data);
-        createUserChart(stats.user_stats);
-        createLabelChart(stats.label_stats);
-        createCFDChart(stats.cfd_stats);
-        createLabelTimelineChart(stats.label_timeline_stats);
-        createUserLabelMatrixTable(stats.user_label_matrix);
-        createTreeDiagram(data, users);
-
-      } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        const errorDiv = document.getElementById('error');
-        errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-        errorDiv.classList.remove('hidden');
-        console.error('Error loading data:', error);
-      } finally {
-        isLoading = false;
-        updateReloadButton(false);
-      }
-    }
-
-    function updateReloadButton(loading) {
-      const btn = document.getElementById('reloadBtn');
-      const icon = btn.querySelector('.fa-arrows-rotate');
-
-      if (loading) {
-        btn.classList.add('opacity-70', 'cursor-not-allowed');
-        btn.disabled = true;
-        if (icon) icon.classList.add('animate-spin');
-      } else {
-        btn.classList.remove('opacity-70', 'cursor-not-allowed');
-        btn.disabled = false;
-        if (icon) icon.classList.remove('animate-spin');
-      }
-    }
-
-    function reloadData() {
-      if (isLoading) return;
-      console.log('Reloading data from GitLab...');
-      if (currentDateRange) {
-        loadDataWithDateRange(currentDateRange.start, currentDateRange.end, true);
-      } else {
-        loadData(currentFilter, true);
-      }
-    }
-
-    function filterByDays(days, el) {
-      currentFilter = days;
-      currentDateRange = null;
-
-      document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.classList.remove('bg-cyan-600', 'text-white');
-        btn.classList.add('bg-cyan-50', 'text-cyan-700');
-      });
-      el.classList.remove('bg-cyan-50', 'text-cyan-700');
-      el.classList.add('bg-cyan-600', 'text-white');
-
-      document.getElementById('startDate').value = '';
-      document.getElementById('endDate').value = '';
-
-      loadData(days, false);
-    }
-
-    function filterByDateRange() {
-      const startDate = document.getElementById('startDate').value;
-      const endDate = document.getElementById('endDate').value;
-
-      if (!startDate || !endDate) {
-        alert('Bitte wahlen Sie Start- und Enddatum aus!');
-        return;
-      }
-
-      if (new Date(startDate) > new Date(endDate)) {
-        alert('Startdatum muss vor dem Enddatum liegen!');
-        return;
-      }
-
-      currentFilter = null;
-      currentDateRange = { start: startDate, end: endDate };
-
-      document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.classList.remove('bg-cyan-600', 'text-white');
-        btn.classList.add('bg-cyan-50', 'text-cyan-700');
-      });
-
-      loadDataWithDateRange(startDate, endDate);
-    }
-
-    async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
-      if (isLoading) {
-        console.log('Already loading data...');
-        return;
-      }
-
-      try {
-        isLoading = true;
-        updateReloadButton(true);
-
-        const loadingDiv = document.getElementById('loading');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('loadingText');
-        loadingDiv.classList.remove('hidden');
-        document.getElementById('content').classList.add('hidden');
-        document.getElementById('error').classList.add('hidden');
-
-        const baseParams = [
-          `start_date=${encodeURIComponent(startDate)}`,
-          `end_date=${encodeURIComponent(endDate)}`
-        ];
-
-        let fetchUrl = "/api/data";
-        const fetchParams = [...baseParams];
-        if (forceRefresh) {
-          fetchParams.push('refresh=true');
-        }
-        fetchUrl += '?' + fetchParams.join('&');
-
-        let url = "/api/data?" + baseParams.join('&');
-
-        let res = await fetch(fetchUrl);
-        let response = await res.json();
-
-        if (response.loading) {
-          while (true) {
-            await new Promise(r => setTimeout(r, 1000));
-            const pRes = await fetch('/api/progress');
-            const pData = await pRes.json();
-            progressFill.style.width = pData.pct + '%';
-            progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
-            progressText.textContent = pData.msg || 'Lade Daten...';
-            if (!pData.loading) break;
-          }
-          res = await fetch(url);
-          response = await res.json();
-          progressFill.style.width = '100%';
-          progressFill.className = 'h-full bg-gradient-to-r from-green-500 to-cyan-600 rounded transition-all duration-500 min-w-[8px]';
-          progressText.textContent = 'Fertig!';
-        }
-
-        if (!response.success) {
-          throw new Error(response.error || 'Fehler beim Laden der Daten');
-        }
-
-        const data = response.data;
-        const users = response.users || [];
-        const labels = response.labels || [];
-        const stats = response.stats || {};
-        groupPath = response.group_path || '';
-        repositoryName = response.repository_name || '';
-        allUsers = users;
-
-        loadingDiv.classList.add('hidden');
-        document.getElementById('content').classList.remove('hidden');
-
-        createStatsCards(stats);
-        createTopIssuesList(data);
-        createUserChart(stats.user_stats);
-        createLabelChart(stats.label_stats);
-        createCFDChart(stats.cfd_stats);
-        createLabelTimelineChart(stats.label_timeline_stats);
-        createUserLabelMatrixTable(stats.user_label_matrix);
-        createTreeDiagram(data, users);
-
-      } catch (error) {
-        document.getElementById('loading').classList.add('hidden');
-        const errorDiv = document.getElementById('error');
-        errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-        errorDiv.classList.remove('hidden');
-        console.error('Error loading data:', error);
-      } finally {
-        isLoading = false;
-        updateReloadButton(false);
-      }
-    }
-
-    function createStatsCards(stats) {
-      const grid = document.getElementById('statsGrid');
-
-      let progressCard = '';
-
-      if (currentFilter === null && currentDateRange === null) {
-        progressCard = `
-          <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
-            <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Fortschritt</h4>
-            <div class="text-3xl font-bold text-cyan-600">${stats.total_estimated > 0 ? Math.round((stats.total_spent / stats.total_estimated) * 100) : 0}%</div>
-          </div>
-        `;
-      } else {
-        const createdCount = stats.creation_stats ?
-          Object.values(stats.creation_stats.user_data).reduce((sum, counts) =>
-            sum + counts.reduce((a, b) => a + b, 0), 0
-          ) : 0;
-
-        progressCard = `
-          <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
-            <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Erstellte Issues</h4>
-            <div class="text-3xl font-bold text-cyan-600">${createdCount}</div>
-          </div>
-        `;
-      }
-
-      grid.innerHTML = `
-        <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
-          <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Gesamte aufgewendete Zeit</h4>
-          <div class="text-3xl font-bold text-cyan-600">${stats.total_spent} h</div>
-        </div>
-        <div class="bg-white p-5 rounded-lg shadow text-center border-l-4 border-cyan-600">
-          <h4 class="m-0 mb-2 text-cyan-700 text-xs uppercase tracking-wider">Gesamte geschätzte Zeit</h4>
-          <div class="text-3xl font-bold text-cyan-600">${stats.total_estimated} h</div>
-        </div>
-        ${progressCard}
-      `;
-    }
-
-    function createTopIssuesList(data) {
-      const issues = data.filter(d => d.Typ === 'issue' && d['Zeitaufwand (h)'] > 0);
-
-      issues.sort((a, b) => b['Zeitaufwand (h)'] - a['Zeitaufwand (h)']);
-
-      const topIssues = issues.slice(0, 10);
-
-      const list = document.getElementById('topIssuesList');
-      list.innerHTML = '';
-
-      topIssues.forEach((issue, index) => {
-        const li = document.createElement('li');
-
-        const isDone = issue.state === 'closed';
-        if (isDone) {
-          li.className = 'p-3.5 mb-2 bg-gray-50 rounded border-l-4 border-cyan-600 shadow-sm opacity-50';
-        } else {
-          li.className = 'p-3.5 mb-2 bg-cyan-50 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:bg-cyan-100 hover:translate-x-1';
-        }
-
-        const issueUrl = `${gitlabUrl}/${groupPath}${repositoryName ? '/' + repositoryName : ''}/-/issues/${issue.IID}`;
-
-        const workingUsers = [];
-        for (const key in issue) {
-          if (!['Typ', 'Titel', 'IID', 'Parent IID', 'Zeitaufwand (h)', 'gesch. Zeitaufwand (h)', 'createdAt', 'state'].includes(key)
-              && typeof issue[key] === 'number'
-              && issue[key] > 0) {
-            workingUsers.push({
-              name: key,
-              percentage: issue[key]
-            });
-          }
-        }
-
-        workingUsers.sort((a, b) => b.percentage - a.percentage);
-
-        const userBadgesHtml = workingUsers.length > 0
-          ? `<div class="flex gap-1 flex-wrap mt-2">
-               ${workingUsers.map(u => `<span class="inline-block px-2.5 py-0.5 bg-cyan-100 border border-cyan-500 rounded-full text-xs text-cyan-700 font-medium">${u.name.replace(/ .*/,'')} (${(u.percentage * 100).toFixed(0)}%)</span>`).join('')}
-             </div>`
-          : '';
-
-        const titleClass = isDone ? 'font-semibold text-cyan-900 mb-1 line-through text-cyan-400' : 'font-semibold text-cyan-900 mb-1';
-
-        li.innerHTML = `
-          <div class="${titleClass}">
-            ${index + 1}. <a href="${issueUrl}" target="_blank" class="text-cyan-500 no-underline hover:underline">#${issue.IID} ${issue.Titel}</a>
-          </div>
-          <div class="flex gap-3.5 text-sm text-cyan-700 flex-wrap">
-            <span class="font-semibold text-cyan-600"><i class="fa-regular fa-clock"></i> ${issue['Zeitaufwand (h)']} h verbraucht</span>
-            <span class="font-semibold text-amber-500"><i class="fa-regular fa-chart-bar"></i> ${issue['gesch. Zeitaufwand (h)']} h geschätzt</span>
-            <span class="text-cyan-400">ID: ${issue.IID}</span>
-          </div>
-          ${userBadgesHtml}
-        `;
-
-        list.appendChild(li);
-      });
-    }
-
-    function createUserChart(userStats) {
-      const users = Object.keys(userStats).filter(u => userStats[u] > 0);
-      const hours = users.map(u => userStats[u]);
-
-      if (charts.userChart) charts.userChart.destroy();
-      const ctx = document.getElementById('userChart');
-      charts.userChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: users,
-          datasets: [{
-            data: hours,
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.7)',
-              'rgba(54, 162, 235, 0.7)',
-              'rgba(255, 206, 86, 0.7)',
-              'rgba(75, 192, 192, 0.7)',
-              'rgba(153, 102, 255, 0.7)',
-              'rgba(255, 159, 64, 0.7)',
-              'rgba(199, 199, 199, 0.7)',
-              'rgba(83, 102, 255, 0.7)',
-            ],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          plugins: {
-            legend: { position: 'right' },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.label + ': ' + context.parsed + ' h';
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function createLabelChart(labelStats) {
-      const labels = Object.keys(labelStats).filter(l => labelStats[l].hours > 0);
-      const hours = labels.map(l => labelStats[l].hours);
-
-      const shortLabels = labels.map(l => l.split(' ')[0]);
-
-      const colors = [
-        'rgba(255, 99, 132, 0.7)',
-        'rgba(54, 162, 235, 0.7)',
-        'rgba(255, 206, 86, 0.7)',
-        'rgba(75, 192, 192, 0.7)',
-        'rgba(153, 102, 255, 0.7)',
-        'rgba(255, 159, 64, 0.7)',
-        'rgba(199, 199, 199, 0.7)',
-        'rgba(83, 102, 255, 0.7)',
-      ];
-
-      const backgroundColors = labels.map((_, index) => colors[index % colors.length]);
-      const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
-
-      if (charts.labelChart) charts.labelChart.destroy();
-      const ctx = document.getElementById('labelChart');
-      charts.labelChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: shortLabels,
-          datasets: [{
-            label: 'Stunden',
-            data: hours,
-            backgroundColor: backgroundColors,
-            borderColor: borderColors,
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          indexAxis: 'y',
-          scales: {
-            x: {
-              beginAtZero: true,
-              title: { display: true, text: 'Stunden' }
-            }
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: function(context) {
-                  return labels[context[0].dataIndex];
-                },
-                label: function(context) {
-                  return context.parsed.x + ' h';
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function createTreeDiagram(data, users) {
-      const container = document.getElementById('treeContainer');
-
-      const root = data.find(d => d.Typ === 'epic' && d['Parent IID'] === null);
-      if (!root) {
-        container.innerHTML = '<p class="text-cyan-700">Keine Root-Epic gefunden</p>';
-        return;
-      }
-
-      const topLevelEpics = data.filter(d => d.Typ === 'epic' && d['Parent IID'] === root.IID);
-      const allEpics = data.filter(d => d.Typ === 'epic' && d.IID !== root.IID);
-      const issues = data.filter(d => d.Typ === 'issue');
-
-      function getChildEpics(parentIid) {
-        return allEpics.filter(e => e['Parent IID'] === parentIid);
-      }
-
-      function getDirectIssues(epicIid) {
-        return issues.filter(i => i['Parent IID'] === epicIid);
-      }
-
-      function getAllIssuesForEpic(epicIid) {
-        const directIssues = getDirectIssues(epicIid);
-        const childEpics = getChildEpics(epicIid);
-        const childIssues = childEpics.flatMap(childEpic => getAllIssuesForEpic(childEpic.IID));
-        return [...directIssues, ...childIssues];
-      }
-
-      function countChildEpics(epicIid) {
-        const directChildren = getChildEpics(epicIid);
-        let count = directChildren.length;
-        directChildren.forEach(child => {
-          count += countChildEpics(child.IID);
-        });
-        return count;
-      }
-
-      function renderIssue(issue) {
-        const issueUrl = `${gitlabUrl}/${groupPath}${repositoryName ? '/' + repositoryName : ''}/-/issues/${issue.IID}`;
-        const createdDate = issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('de-DE') : 'N/A';
-        const isDone = issue.state === 'closed';
-
-        const contributors = [];
-        allUsers.forEach(user => {
-          const percentage = issue[user];
-          if (percentage > 0) {
-            contributors.push({
-              name: user,
-              percentage: percentage
-            });
-          }
-        });
-        contributors.sort((a, b) => b.percentage - a.percentage);
-
-        const itemClass = isDone
-          ? 'bg-white p-3 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:translate-x-1 hover:shadow opacity-50 bg-gray-50'
-          : 'bg-white p-3 rounded border-l-4 border-cyan-600 shadow-sm transition-all hover:translate-x-1 hover:shadow';
-
-        const titleClass = isDone
-          ? 'font-semibold text-cyan-500 cursor-pointer flex-1 line-through text-cyan-400'
-          : 'font-semibold text-cyan-500 cursor-pointer flex-1 hover:underline';
-
-        return `<div class="${itemClass}">
-                  <div class="flex justify-between items-center mb-2">
-                    <div class="${titleClass}" onclick="window.open('${issueUrl}', '_blank')">
-                      #${issue.IID} ${issue.Titel}
-                    </div>
-                  </div>
-                  <div class="flex gap-3 text-xs flex-wrap">
-                    <div class="flex items-center gap-1">
-                      <span class="text-cyan-700"><i class="fa-regular fa-calendar"></i> Erstellt:</span>
-                      <span class="font-semibold text-cyan-400">${createdDate}</span>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <span class="text-cyan-700"><i class="fa-regular fa-clock"></i> Verbracht:</span>
-                      <span class="font-semibold text-cyan-600">${issue['Zeitaufwand (h)']} h</span>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <span class="text-cyan-700"><i class="fa-regular fa-chart-bar"></i> Geplant:</span>
-                      <span class="font-semibold text-amber-500">${issue['gesch. Zeitaufwand (h)']} h</span>
-                    </div>
-                    ${isDone ? '<div class="flex items-center gap-1"><span class="text-cyan-700"><i class="fa-solid fa-check"></i> Status:</span><span class="font-semibold">Closed</span></div>' : ''}
-                  </div>
-                  ${contributors.length > 0 ? `
-                    <div class="flex gap-1.5 flex-wrap mt-1.5">
-                      ${contributors.map(c =>
-                        `<span class="px-2.5 py-0.5 bg-cyan-100 border border-cyan-500 rounded-full text-xs text-cyan-700 font-medium">${c.name.split(' ')[0]} (${(c.percentage * 100).toFixed(0)}%)</span>`
-                      ).join('')}
-                    </div>
-                  ` : ''}
-                </div>`;
-      }
-
-      function renderChildEpics(parentIid, level = 1) {
-        const childEpics = getChildEpics(parentIid);
-        if (childEpics.length === 0) return '';
-
-        let html = `<div class="flex flex-col gap-3 py-3 pl-3 border-l-3 border-cyan-500">`;
-
-        childEpics.forEach(childEpic => {
-          const directIssues = getDirectIssues(childEpic.IID);
-          const subChildEpics = getChildEpics(childEpic.IID);
-          const totalIssues = getAllIssuesForEpic(childEpic.IID);
-          const childEpicCount = countChildEpics(childEpic.IID);
-
-          html += `<div class="flex flex-col">
-                     <div class="bg-white border border-cyan-600 rounded p-3 cursor-pointer transition-all shadow-sm hover:translate-x-1 hover:shadow hover:bg-cyan-100 tree-node-content" onclick="toggleEpic(${childEpic.IID})">
-                       <div class="font-semibold mb-0.5"><i class="fa-regular fa-folder"></i> ${childEpic.Titel}</div>
-                       <div class="text-xs text-cyan-700">
-                         ${childEpicCount > 0 ? `${childEpicCount} Child-Epic${childEpicCount > 1 ? 's' : ''} | ` : ''}
-                         ${totalIssues.length} Issue${totalIssues.length !== 1 ? 's' : ''}
-                       </div>
-                       <div class="text-xs text-cyan-700">
-                         ${childEpic['Zeitaufwand (h)']} h / ${childEpic['gesch. Zeitaufwand (h)']} h
-                       </div>
-                     </div>
-                     <div class="hidden flex-col gap-3 mt-2" id="epic-${childEpic.IID}">`;
-
-          if (subChildEpics.length > 0) {
-            html += renderChildEpics(childEpic.IID, level + 1);
-          }
-
-          if (directIssues.length > 0) {
-            html += `<div class="flex flex-col gap-2">`;
-            directIssues.forEach(issue => {
-              html += renderIssue(issue);
-            });
-            html += `</div>`;
-          }
-
-          html += `</div></div>`;
-        });
-
-        html += `</div>`;
-        return html;
-      }
-
-      const repoName = groupPath.split('/').pop() || 'Repository';
-      let html = '<div class="flex flex-col gap-1">';
-      html += '<div class="flex flex-col w-full">';
-      html += `<div class="bg-gradient-to-r from-cyan-600 to-cyan-800 text-white border-transparent rounded p-3 shadow-sm font-bold text-base">
-                  <div class="font-semibold mb-0.5"><i class="fa-solid fa-box"></i> ${repoName}</div>
-                  <div class="text-xs text-white/85">${root.Titel}</div>
-                  <div class="text-xs text-white/85">${root['Zeitaufwand (h)']} h / ${root['gesch. Zeitaufwand (h)']} h</div>
-               </div>`;
-
-      if (topLevelEpics.length > 0) {
-        html += '<div class="flex flex-col ml-6 border-l-2 border-cyan-200 pl-4 gap-1">';
-        topLevelEpics.forEach(epic => {
-          const totalIssues = getAllIssuesForEpic(epic.IID);
-          const directIssues = getDirectIssues(epic.IID);
-          const childEpicCount = countChildEpics(epic.IID);
-
-          html += '<div class="flex flex-col">';
-          html += `<div class="bg-cyan-100 border border-cyan-500 rounded p-3 cursor-pointer transition-all shadow-sm hover:translate-x-1 hover:shadow hover:bg-cyan-100 tree-node-content" onclick="toggleEpic(${epic.IID})">
-                      <div class="font-semibold mb-0.5"><i class="fa-regular fa-folder"></i> ${epic.Titel}</div>
-                      <div class="text-xs text-cyan-700">
-                        ${childEpicCount > 0 ? `${childEpicCount} Child-Epic${childEpicCount > 1 ? 's' : ''} | ` : ''}
-                        ${totalIssues.length} Issue${totalIssues.length !== 1 ? 's' : ''}
-                      </div>
-                      <div class="text-xs text-cyan-700">
-                        ${epic['Zeitaufwand (h)']} h / ${epic['gesch. Zeitaufwand (h)']} h
-                      </div>
-                   </div>`;
-
-          html += `<div class="hidden flex-col gap-3 mt-2" id="epic-${epic.IID}">`;
-
-          html += renderChildEpics(epic.IID, 1);
-
-          if (directIssues.length > 0) {
-            html += `<div class="flex flex-col gap-2">`;
-            directIssues.forEach(issue => {
-              html += renderIssue(issue);
-            });
-            html += `</div>`;
-          }
-
-          html += '</div>';
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-
-      html += '</div></div>';
-      container.innerHTML = html;
-    }
-
-    function toggleEpic(epicId) {
-      const epicContent = document.getElementById(`epic-${epicId}`);
-      const epicNode = epicContent.previousElementSibling;
-
-      if (epicContent.classList.contains('flex')) {
-        epicContent.classList.remove('flex', 'flex-col', 'gap-3', 'mt-2');
-        epicContent.classList.add('hidden');
-        epicNode.classList.remove('!bg-blue-100');
-      } else {
-        epicContent.classList.remove('hidden');
-        epicContent.classList.add('flex', 'flex-col', 'gap-3', 'mt-2');
-        epicNode.classList.add('!bg-blue-100');
-      }
-    }
-
-    async function loadReports() {
-      try {
-        const response = await fetch('/api/reports');
-        const result = await response.json();
-
-        const listDiv = document.getElementById('reportsList');
-
-        if (!result.success || result.reports.length === 0) {
-          listDiv.innerHTML = '<p class="text-center py-4 text-cyan-700">Keine Berichte vorhanden</p>';
-          return;
-        }
-
-        listDiv.innerHTML = result.reports.map(report => {
-          const dateStr = report.created.split(' ')[0];
-          return `
-          <div class="bg-gradient-to-br from-white to-cyan-50 border border-cyan-200 rounded-lg p-4 shadow-sm transition-all cursor-pointer hover:border-cyan-500 hover:shadow-md hover:-translate-y-1 border-l-4 border-l-cyan-600" onclick="viewReport('${report.filename}')">
-            <div class="font-semibold text-cyan-900 mb-2 text-sm flex items-center gap-2"><i class="fa-regular fa-file-lines text-cyan-600"></i> Bericht vom ${dateStr}</div>
-            <div class="flex gap-2 text-xs">
-              <span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded"><i class="fa-regular fa-calendar"></i> ${report.created}</span>
-              <span class="bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded"><i class="fa-solid fa-chart-bar"></i> ${(report.size / 1024).toFixed(2)} KB</span>
-            </div>
-          </div>`;
-        }).join('');
-
-      } catch (error) {
-        console.error('Error loading reports:', error);
-        document.getElementById('reportsList').innerHTML = '<p class="text-center py-4 text-cyan-700">Fehler beim Laden der Berichte</p>';
-      }
-    }
-
-    async function generateReport() {
-      const btn = document.getElementById('generateReportBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Bericht wird erstellt...';
-
-      try {
-        const response = await fetch('/api/generate-report', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          alert('✅ Bericht erfolgreich erstellt!');
-          loadReports();
-        } else {
-          alert('❌ Fehler beim Erstellen des Berichts: ' + result.error);
-        }
-      } catch (error) {
-        console.error('Error generating report:', error);
-        alert('❌ Fehler beim Erstellen des Berichts: ' + error.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen';
-      }
-    }
-
-    function viewReport(filename) {
-      const modal = document.getElementById('reportModal');
-      const contentDiv = document.getElementById('reportContent');
-
-      contentDiv.innerHTML = '<p class="text-center">Lade Bericht...</p>';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-
-      fetch(`/reports/${filename}`)
-        .then(response => response.text())
-        .then(html => {
-          contentDiv.innerHTML = html;
-        })
-        .catch(error => {
-          console.error('Error loading report:', error);
-          contentDiv.innerHTML = '<p class="text-center text-red-600">Fehler beim Laden des Berichts</p>';
-        });
-    }
-
-    function closeReportModal() {
-      const modal = document.getElementById('reportModal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    function createUserLabelMatrixTable(matrix) {
-      const container = document.getElementById('userLabelMatrixContainer');
-      if (!matrix || Object.keys(matrix).length === 0) {
-        container.innerHTML = '<p>Keine Daten verfügbar</p>';
-        return;
-      }
-
-      const users = Object.keys(matrix).sort();
-      const labels = Object.keys(matrix[users[0]] || {}).sort();
-
-      let html = '<table class="w-full border-collapse text-sm">';
-
-      html += '<thead><tr><th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">User</th>';
-      labels.forEach(label => {
-        html += `<th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">${label}</th>`;
-      });
-      html += '<th class="border border-cyan-200 p-2 text-center bg-cyan-50 font-semibold text-xs whitespace-nowrap">Gesamt</th></tr></thead>';
-
-      html += '<tbody>';
-      users.forEach(user => {
-        let userTotal = 0;
-        html += `<tr><td class="border border-cyan-200 p-2 text-left font-bold">${user}</td>`;
-
-        labels.forEach(label => {
-          const value = matrix[user][label] || 0;
-          userTotal += value;
-          const displayValue = value > 0 ? value.toFixed(2) + ' h' : '-';
-          const classNames = value === 0 ? 'border border-cyan-200 p-2 text-center font-medium text-cyan-400' : 'border border-cyan-200 p-2 text-center font-medium';
-          html += `<td class="${classNames}">${displayValue}</td>`;
-        });
-
-        html += `<td class="border border-cyan-200 p-2 text-center font-bold">${userTotal.toFixed(2)} h</td></tr>`;
-      });
-      html += '</tbody></table>';
-
-      container.innerHTML = html;
-    }
-
-    loadData(currentFilter, false);
-    loadReports();
-  </script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>
