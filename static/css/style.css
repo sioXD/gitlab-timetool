@@ -168,6 +168,26 @@ body {
   box-shadow: inset 6px 6px 10px var(--shadow-dark), inset -6px -6px 10px var(--shadow-light);
 }
 
+#filterBar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  transition: border-radius 0.35s ease-out, box-shadow 0.35s ease-out, backdrop-filter 0.35s ease-out, margin 0.35s ease-out;
+}
+
+#filterBar.stuck {
+  border-radius: 0 0 var(--radius-container) var(--radius-container);
+  box-shadow: 12px 12px 20px var(--shadow-dark-hover), -12px -12px 20px var(--shadow-light-hover), 0 4px 24px rgba(0,0,0,0.06);
+  backdrop-filter: blur(12px);
+  background: rgba(224, 229, 236, 0.88);
+  animation: slideDown 0.35s ease-out;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-8px); opacity: 0.8; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .neu-progress-track {
   background: var(--bg);
   border-radius: 9999px;

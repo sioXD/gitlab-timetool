@@ -784,6 +784,20 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('click', event => {
     if (event.target == document.getElementById('reportModal')) closeReportModal();
   });
+
+  const filterBar = document.getElementById('filterBar');
+  let filterBarStuck = false;
+  window.addEventListener('scroll', () => {
+    const header = document.querySelector('header');
+    if (!header) return;
+    const headerBottom = header.offsetTop + header.offsetHeight;
+    const shouldStick = window.scrollY > headerBottom - filterBar.offsetHeight;
+    if (shouldStick !== filterBarStuck) {
+      filterBarStuck = shouldStick;
+      filterBar.classList.toggle('stuck', shouldStick);
+    }
+  }, { passive: true });
+
   loadData(currentFilter, false);
   loadReports();
 });
