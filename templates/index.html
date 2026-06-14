@@ -378,19 +378,26 @@
         document.getElementById('content').classList.add('hidden');
         document.getElementById('error').classList.add('hidden');
 
-        let url = "/api/data";
-        const params = [];
+        const baseParams = [];
         if (days !== null) {
-          params.push(`days=${days}`);
-        }
-        if (forceRefresh) {
-          params.push('refresh=true');
-        }
-        if (params.length > 0) {
-          url += '?' + params.join('&');
+          baseParams.push(`days=${days}`);
         }
 
-        let res = await fetch(url);
+        let fetchUrl = "/api/data";
+        const fetchParams = [...baseParams];
+        if (forceRefresh) {
+          fetchParams.push('refresh=true');
+        }
+        if (fetchParams.length > 0) {
+          fetchUrl += '?' + fetchParams.join('&');
+        }
+
+        let url = "/api/data";
+        if (baseParams.length > 0) {
+          url += '?' + baseParams.join('&');
+        }
+
+        let res = await fetch(fetchUrl);
         let response = await res.json();
 
         if (response.loading) {
@@ -465,7 +472,7 @@
       if (isLoading) return;
       console.log('Reloading data from GitLab...');
       if (currentDateRange) {
-        loadDataWithDateRange(currentDateRange.start, currentDateRange.end);
+        loadDataWithDateRange(currentDateRange.start, currentDateRange.end, true);
       } else {
         loadData(currentFilter, true);
       }
@@ -513,7 +520,7 @@
       loadDataWithDateRange(startDate, endDate);
     }
 
-    async function loadDataWithDateRange(startDate, endDate) {
+    async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
       if (isLoading) {
         console.log('Already loading data...');
         return;
@@ -523,19 +530,46 @@
         isLoading = true;
         updateReloadButton(true);
 
-        document.getElementById('loading').classList.remove('hidden');
+        const loadingDiv = document.getElementById('loading');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('loadingText');
+        loadingDiv.classList.remove('hidden');
         document.getElementById('content').classList.add('hidden');
         document.getElementById('error').classList.add('hidden');
 
-        let url = "/api/data";
-        const params = [];
-        params.push(`start_date=${encodeURIComponent(startDate)}`);
-        params.push(`end_date=${encodeURIComponent(endDate)}`);
+        const baseParams = [
+          `start_date=${encodeURIComponent(startDate)}`,
+          `end_date=${encodeURIComponent(endDate)}`
+        ];
 
-        url += '?' + params.join('&');
+        let fetchUrl = "/api/data";
+        const fetchParams = [...baseParams];
+        if (forceRefresh) {
+          fetchParams.push('refresh=true');
+        }
+        fetchUrl += '?' + fetchParams.join('&');
 
-        const res = await fetch(url);
-        const response = await res.json();
+        let url = "/api/data?" + baseParams.join('&');
+
+        let res = await fetch(fetchUrl);
+        let response = await res.json();
+
+        if (response.loading) {
+          while (true) {
+            await new Promise(r => setTimeout(r, 1000));
+            const pRes = await fetch('/api/progress');
+            const pData = await pRes.json();
+            progressFill.style.width = pData.pct + '%';
+            progressFill.className = 'h-full bg-gradient-to-r from-cyan-600 to-cyan-500 rounded transition-all duration-500 min-w-[8px]';
+            progressText.textContent = pData.msg || 'Lade Daten...';
+            if (!pData.loading) break;
+          }
+          res = await fetch(url);
+          response = await res.json();
+          progressFill.style.width = '100%';
+          progressFill.className = 'h-full bg-gradient-to-r from-green-500 to-cyan-600 rounded transition-all duration-500 min-w-[8px]';
+          progressText.textContent = 'Fertig!';
+        }
 
         if (!response.success) {
           throw new Error(response.error || 'Fehler beim Laden der Daten');
@@ -549,7 +583,7 @@
         repositoryName = response.repository_name || '';
         allUsers = users;
 
-        document.getElementById('loading').classList.add('hidden');
+        loadingDiv.classList.add('hidden');
         document.getElementById('content').classList.remove('hidden');
 
         createStatsCards(stats);

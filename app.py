@@ -298,7 +298,7 @@ def get_data():
         with _load_lock:
             still_loading = _load_progress["loading"]
             load_error = _load_progress["error"]
-        if still_loading and not csv_rows:
+        if still_loading:
             return jsonify({"success": True, "loading": True, "data": [], "users": [], "labels": []})
         if load_error and not csv_rows:
             return jsonify({"success": False, "error": load_error}), 500
