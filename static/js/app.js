@@ -261,6 +261,7 @@ function createLabelTimelineChart(labelTimelineStats) {
 }
 
 function createUserChart(userStats) {
+  if (!userStats) return;
   const users = Object.keys(userStats).filter(u => userStats[u] > 0);
   const hours = users.map(u => userStats[u]);
   if (charts.userChart) charts.userChart.destroy();
@@ -313,6 +314,7 @@ function createUserChart(userStats) {
 }
 
 function createLabelChart(labelStats) {
+  if (!labelStats) return;
   const labels = Object.keys(labelStats).filter(l => labelStats[l].hours > 0);
   const hours = labels.map(l => labelStats[l].hours);
   const shortLabels = labels.map(l => l.split(' ')[0]);
@@ -833,6 +835,7 @@ function closeReportModal() {
 }
 
 function createLeaderboard(userStats, userIssueCount) {
+  if (!userStats) return;
   const container = document.getElementById('leaderboardContainer');
   userIssueCount = userIssueCount || {};
   const users = Object.keys(userStats).filter(u => userStats[u] > 0);
