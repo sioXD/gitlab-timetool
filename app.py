@@ -16,6 +16,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from google import genai
 import threading
+import concurrent.futures
+import time
 
 load_dotenv()
 
@@ -966,7 +968,20 @@ def _collect_epic_hierarchy(e, indent=0):
 def generate_weekly_report():
     """Generate weekly project status report using Google Gemini API"""
     try:
+        _update_progress("start", 0, "Loading data...")
         load_data(force_refresh=True)
+        for _ in range(120):
+            with _load_lock:
+                if not _load_progress["loading"]:
+                    break
+            time.sleep(1)
+
+        with _load_lock:
+            load_error = _load_progress["error"]
+        if load_error:
+            return {'success': False, 'error': f'Data loading error: {load_error}'}
+        if not csv_rows or not epic_tree:
+            return {'success': False, 'error': 'No data available - try loading the dashboard first'}
 
         reports_dir = Path("reports")
         reports_dir.mkdir(exist_ok=True)
@@ -1090,11 +1105,17 @@ Wichtig: Gib NUR das HTML zurück, ohne Markdown-Umschließung. Kein ```html vor
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
         try:
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt
-            )
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    client.models.generate_content,
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                response = future.result(timeout=25)
             app.logger.info(f"Gemini response received")
+        except concurrent.futures.TimeoutError:
+            app.logger.error("Gemini API timeout after 25s")
+            return {'success': False, 'error': 'Gemini API timeout - request took too long'}
         except Exception as e:
             app.logger.error(f"Error in AI response: {e}")
             return {'success': False, 'error': f"Gemini API error: {e}"}
