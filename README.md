@@ -45,6 +45,11 @@ GEMINI_API_KEY=gemini-api-key
 
 - in `app.py` -> [332] target_matrix_labels = ["Entwurf", "Implementation & Test", "Projektmanagement", "Requirements Engineering"]
 
+
+> [!IMPORTANT]
+> If deploying on a server with `unicorn`, make sure to add a timout of min `120s` or even `180s` to make sure the AI dosn't timeout
+
+
 ## Screenshots
 
 ![Dashboard Übersicht](img/Screenshot1.png)
