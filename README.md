@@ -15,7 +15,7 @@ Ein interaktives Dashboard zur Visualisierung und Analyse von Zeiterfassungsdate
 
 ### Schritt 1: `.env` Datei erstellen
 
-Erstellen Sie eine `.env` Datei im Projektverzeichnis (referenz: `.env.example`):
+Erstellen Sie eine `.env` Datei im Projektverzeichnis (Referenz: `.env.example`):
 
 ```env
 TOKEN=ihr_gitlab_personal_access_token
@@ -43,9 +43,15 @@ GEMINI_API_KEY=gemini-api-key
   
 ### Hardcode ändern
 
-- in `app.py` -> [324] target_matrix_labels = ["Entwurf", "Implementation & Test", "Projektmanagement", "Requirements Engineering"]
+- in `app.py` -> [332] target_matrix_labels = ["Entwurf", "Implementation & Test", "Projektmanagement", "Requirements Engineering"]
 
-### Ideen
+## Screenshots
 
-- Rangliste (Leaderboard)
-- balken diagramm für die Überkategorien (vllt.)
+![Dashboard Übersicht](img/Screenshot1.png)
+*Dashboard-Übersicht mit eingetragenen Zeiten und angesetzten Zeiten*
+
+![Issue und Zeitverteilung](img/Screenshot2.png)
+*Top Issues, Zeitverteilung nach Benutzern und Issue Verlauf*
+
+![Rangliste](img/Screenshot3.png)
+*Rangliste basierend auf der aktuellen ausgewählten Zeit*
