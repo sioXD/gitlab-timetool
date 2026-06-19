@@ -351,6 +351,7 @@ async function loadData(days = null, forceRefresh = false) {
     createCFDChart(stats.cfd_stats);
     createLabelTimelineChart(stats.label_timeline_stats);
     createUserLabelMatrixTable(stats.user_label_matrix);
+    createLeaderboard(stats.user_stats, stats.user_issue_count);
     createTreeDiagram(data, users);
   } catch (error) {
     document.getElementById('loading').classList.add('hidden');
@@ -421,6 +422,7 @@ async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
     createCFDChart(stats.cfd_stats);
     createLabelTimelineChart(stats.label_timeline_stats);
     createUserLabelMatrixTable(stats.user_label_matrix);
+    createLeaderboard(stats.user_stats, stats.user_issue_count);
     createTreeDiagram(data, users);
   } catch (error) {
     document.getElementById('loading').classList.add('hidden');
@@ -744,6 +746,69 @@ function closeReportModal() {
   const modal = document.getElementById('reportModal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');
+}
+
+function createLeaderboard(userStats, userIssueCount) {
+  const container = document.getElementById('leaderboardContainer');
+  userIssueCount = userIssueCount || {};
+  const users = Object.keys(userStats).filter(u => userStats[u] > 0);
+  if (users.length === 0) {
+    container.innerHTML = '<p class="text-[#6B7280] text-center py-6">Keine Daten verfügbar</p>';
+    return;
+  }
+  users.sort((a, b) => userStats[b] - userStats[a]);
+  const maxHours = userStats[users[0]] || 1;
+  const totalHours = users.reduce((s, u) => s + userStats[u], 0);
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+
+  let html = '<div class="flex flex-col gap-3">';
+  users.forEach((user, i) => {
+    const hours = userStats[user];
+    const pct = ((hours / totalHours) * 100).toFixed(1);
+    const barPct = (hours / maxHours) * 100;
+    const issueCount = userIssueCount[user] || 0;
+    const rank = i + 1;
+    const isTop3 = i < 3;
+
+    let rankBadge = '';
+    if (isTop3) {
+      rankBadge = `<span style="font-size:1.5rem;line-height:1">${medals[i]}</span>`;
+    } else {
+      rankBadge = `<span class="font-display font-bold text-sm text-[#8B95A5]" style="width:28px;text-align:center;display:inline-block">${rank}</span>`;
+    }
+
+    const rowClass = isTop3
+      ? 'neu-card-inset p-4 flex items-center gap-4'
+      : 'neu-card-inset p-3 flex items-center gap-4';
+    const borderAccent = isTop3 ? `style="border-left:4px solid ${rankColors[i]}"` : '';
+
+    html += `<div class="${rowClass}" ${borderAccent}>
+      <div class="flex-shrink-0 flex items-center justify-center" style="width:36px">
+        ${rankBadge}
+      </div>
+      <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-display font-bold text-sm" style="background:linear-gradient(135deg, #6C63FF, #8B84FF);color:white">
+        ${user.charAt(0).toUpperCase()}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-display font-semibold text-sm text-[#3D4852] truncate">${user}</div>
+        <div class="w-full h-2 rounded-full mt-1.5" style="background:var(--bg);box-shadow:inset 2px 2px 4px rgb(163,177,198,0.6), inset -2px -2px 4px rgba(255,255,255,0.5)">
+          <div class="h-full rounded-full" style="width:${barPct}%;background:linear-gradient(90deg, #6C63FF, #8B84FF);transition:width 600ms ease-out"></div>
+        </div>
+      </div>
+      <div class="flex-shrink-0 text-right min-w-[100px]">
+        <div class="font-display font-bold text-base text-[#3D4852]">${hours.toFixed(1)} h</div>
+        <div class="text-xs text-[#6B7280]">${pct}%</div>
+      </div>
+      <div class="flex-shrink-0 text-center min-w-[60px] hidden sm:block">
+        <div class="text-xs text-[#6B7280]">Issues</div>
+        <div class="font-display font-semibold text-sm text-[#3D4852]">${issueCount}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function createUserLabelMatrixTable(matrix) {

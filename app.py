@@ -315,9 +315,11 @@ def get_data():
         total_estimated = sum(d['gesch. Zeitaufwand (h)'] for d in issues)
 
         user_stats = {}
+        user_issue_count = {}
         for user in users:
             user_total = sum(d['Zeitaufwand (h)'] * d.get(user, 0) for d in issues)
             user_stats[user] = round(user_total, 2)
+            user_issue_count[user] = sum(1 for d in issues if d.get(user, 0) > 0)
 
         label_stats = {}
         for label in labels:
@@ -355,6 +357,7 @@ def get_data():
                 "total_spent": round(total_spent, 2),
                 "total_estimated": round(total_estimated, 2),
                 "user_stats": user_stats,
+                "user_issue_count": user_issue_count,
                 "label_stats": label_stats,
                 "creation_stats": creation_stats,
                 "cfd_stats": cfd_stats,
