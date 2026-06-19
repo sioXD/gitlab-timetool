@@ -382,142 +382,168 @@ function createLabelChart(labelStats) {
 
 async function loadData(days = null, forceRefresh = false) {
   if (isLoading) return;
-  try {
-    isLoading = true;
-    updateReloadButton(true);
-    const loadingDiv = document.getElementById('loading');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('loadingText');
-    progressFill.classList.remove('done');
-    progressFill.style.width = '0%';
-    progressText.textContent = 'Daten werden geladen...';
-    loadingDiv.classList.remove('hidden');
-    document.getElementById('content').classList.add('hidden');
-    document.getElementById('error').classList.add('hidden');
-    const baseParams = [];
-    if (days !== null) baseParams.push(`days=${days}`);
-    let fetchUrl = "/api/data";
-    const fetchParams = [...baseParams];
-    if (forceRefresh) fetchParams.push('refresh=true');
-    if (fetchParams.length > 0) fetchUrl += '?' + fetchParams.join('&');
-    let url = "/api/data";
-    if (baseParams.length > 0) url += '?' + baseParams.join('&');
-    let res = await fetch(fetchUrl);
-    let response = await res.json();
-    if (response.loading) {
-      while (true) {
-        await new Promise(r => setTimeout(r, 1000));
-        const pRes = await fetch('/api/progress');
-        const pData = await pRes.json();
-        progressFill.style.width = pData.pct + '%';
-        progressText.textContent = pData.msg || 'Lade Daten...';
-        if (!pData.loading) break;
+  const maxRetries = 5;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      isLoading = true;
+      updateReloadButton(true);
+      const loadingDiv = document.getElementById('loading');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('loadingText');
+      progressFill.classList.remove('done');
+      progressFill.style.width = '0%';
+      progressText.textContent = attempt > 1 ? `Wiederholung ${attempt}/${maxRetries}...` : 'Daten werden geladen...';
+      loadingDiv.classList.remove('hidden');
+      document.getElementById('content').classList.add('hidden');
+      document.getElementById('error').classList.add('hidden');
+      const baseParams = [];
+      if (days !== null) baseParams.push(`days=${days}`);
+      let fetchUrl = "/api/data";
+      const fetchParams = [...baseParams];
+      if (forceRefresh) fetchParams.push('refresh=true');
+      if (fetchParams.length > 0) fetchUrl += '?' + fetchParams.join('&');
+      let url = "/api/data";
+      if (baseParams.length > 0) url += '?' + baseParams.join('&');
+      let res = await fetch(fetchUrl);
+      let response = await res.json();
+      if (response.loading) {
+        while (true) {
+          await new Promise(r => setTimeout(r, 1000));
+          const pRes = await fetch('/api/progress');
+          const pData = await pRes.json();
+          progressFill.style.width = pData.pct + '%';
+          progressText.textContent = pData.msg || 'Lade Daten...';
+          if (!pData.loading) break;
+        }
+        res = await fetch(url);
+        response = await res.json();
+        progressFill.style.width = '100%';
+        progressFill.classList.add('done');
+        progressText.textContent = 'Fertig!';
       }
-      res = await fetch(url);
-      response = await res.json();
-      progressFill.style.width = '100%';
-      progressFill.classList.add('done');
-      progressText.textContent = 'Fertig!';
+      if (!response.success) throw new Error(response.error || 'Fehler beim Laden der Daten');
+      const data = response.data;
+      const users = response.users || [];
+      const labels = response.labels || [];
+      const stats = response.stats || {};
+      groupPath = response.group_path || '';
+      repositoryName = response.repository_name || '';
+      allUsers = users;
+      loadingDiv.classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+      createStatsCards(stats);
+      createTopIssuesList(data);
+      createUserChart(stats.user_stats);
+      createLabelChart(stats.label_stats);
+      createCFDChart(stats.cfd_stats);
+      createLabelTimelineChart(stats.label_timeline_stats);
+      createUserLabelMatrixTable(stats.user_label_matrix);
+      createLeaderboard(stats.user_stats, stats.user_issue_count);
+      createTreeDiagram(data, users);
+      return;
+    } catch (error) {
+      console.error(`Error loading data (attempt ${attempt}/${maxRetries}):`, error);
+      if (attempt < maxRetries) {
+        document.getElementById('error').classList.add('hidden');
+        const progressText = document.getElementById('loadingText');
+        progressText.textContent = `Fehler, Wiederholung ${attempt + 1}/${maxRetries} in 2s...`;
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        document.getElementById('loading').classList.add('hidden');
+        const errorDiv = document.getElementById('error');
+        errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
+        errorDiv.classList.remove('hidden');
+      }
+    } finally {
+      if (attempt === maxRetries) {
+        isLoading = false;
+        updateReloadButton(false);
+      }
     }
-    if (!response.success) throw new Error(response.error || 'Fehler beim Laden der Daten');
-    const data = response.data;
-    const users = response.users || [];
-    const labels = response.labels || [];
-    const stats = response.stats || {};
-    groupPath = response.group_path || '';
-    repositoryName = response.repository_name || '';
-    allUsers = users;
-    loadingDiv.classList.add('hidden');
-    document.getElementById('content').classList.remove('hidden');
-    createStatsCards(stats);
-    createTopIssuesList(data);
-    createUserChart(stats.user_stats);
-    createLabelChart(stats.label_stats);
-    createCFDChart(stats.cfd_stats);
-    createLabelTimelineChart(stats.label_timeline_stats);
-    createUserLabelMatrixTable(stats.user_label_matrix);
-    createLeaderboard(stats.user_stats, stats.user_issue_count);
-    createTreeDiagram(data, users);
-  } catch (error) {
-    document.getElementById('loading').classList.add('hidden');
-    const errorDiv = document.getElementById('error');
-    errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-    errorDiv.classList.remove('hidden');
-    console.error('Error loading data:', error);
-  } finally {
-    isLoading = false;
-    updateReloadButton(false);
   }
 }
 
 async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
   if (isLoading) return;
-  try {
-    isLoading = true;
-    updateReloadButton(true);
-    const loadingDiv = document.getElementById('loading');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('loadingText');
-    progressFill.classList.remove('done');
-    progressFill.style.width = '0%';
-    progressText.textContent = 'Daten werden geladen...';
-    loadingDiv.classList.remove('hidden');
-    document.getElementById('content').classList.add('hidden');
-    document.getElementById('error').classList.add('hidden');
-    const baseParams = [
-      `start_date=${encodeURIComponent(startDate)}`,
-      `end_date=${encodeURIComponent(endDate)}`
-    ];
-    let fetchUrl = "/api/data";
-    const fetchParams = [...baseParams];
-    if (forceRefresh) fetchParams.push('refresh=true');
-    fetchUrl += '?' + fetchParams.join('&');
-    let url = "/api/data?" + baseParams.join('&');
-    let res = await fetch(fetchUrl);
-    let response = await res.json();
-    if (response.loading) {
-      while (true) {
-        await new Promise(r => setTimeout(r, 1000));
-        const pRes = await fetch('/api/progress');
-        const pData = await pRes.json();
-        progressFill.style.width = pData.pct + '%';
-        progressText.textContent = pData.msg || 'Lade Daten...';
-        if (!pData.loading) break;
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      isLoading = true;
+      updateReloadButton(true);
+      const loadingDiv = document.getElementById('loading');
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('loadingText');
+      progressFill.classList.remove('done');
+      progressFill.style.width = '0%';
+      progressText.textContent = attempt > 1 ? `Wiederholung ${attempt}/${maxRetries}...` : 'Daten werden geladen...';
+      loadingDiv.classList.remove('hidden');
+      document.getElementById('content').classList.add('hidden');
+      document.getElementById('error').classList.add('hidden');
+      const baseParams = [
+        `start_date=${encodeURIComponent(startDate)}`,
+        `end_date=${encodeURIComponent(endDate)}`
+      ];
+      let fetchUrl = "/api/data";
+      const fetchParams = [...baseParams];
+      if (forceRefresh) fetchParams.push('refresh=true');
+      fetchUrl += '?' + fetchParams.join('&');
+      let url = "/api/data?" + baseParams.join('&');
+      let res = await fetch(fetchUrl);
+      let response = await res.json();
+      if (response.loading) {
+        while (true) {
+          await new Promise(r => setTimeout(r, 1000));
+          const pRes = await fetch('/api/progress');
+          const pData = await pRes.json();
+          progressFill.style.width = pData.pct + '%';
+          progressText.textContent = pData.msg || 'Lade Daten...';
+          if (!pData.loading) break;
+        }
+        res = await fetch(url);
+        response = await res.json();
+        progressFill.style.width = '100%';
+        progressFill.classList.add('done');
+        progressText.textContent = 'Fertig!';
       }
-      res = await fetch(url);
-      response = await res.json();
-      progressFill.style.width = '100%';
-      progressFill.classList.add('done');
-      progressText.textContent = 'Fertig!';
+      if (!response.success) throw new Error(response.error || 'Fehler beim Laden der Daten');
+      const data = response.data;
+      const users = response.users || [];
+      const labels = response.labels || [];
+      const stats = response.stats || {};
+      groupPath = response.group_path || '';
+      repositoryName = response.repository_name || '';
+      allUsers = users;
+      loadingDiv.classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+      createStatsCards(stats);
+      createTopIssuesList(data);
+      createUserChart(stats.user_stats);
+      createLabelChart(stats.label_stats);
+      createCFDChart(stats.cfd_stats);
+      createLabelTimelineChart(stats.label_timeline_stats);
+      createUserLabelMatrixTable(stats.user_label_matrix);
+      createLeaderboard(stats.user_stats, stats.user_issue_count);
+      createTreeDiagram(data, users);
+      return;
+    } catch (error) {
+      console.error(`Error loading data (attempt ${attempt}/${maxRetries}):`, error);
+      if (attempt < maxRetries) {
+        document.getElementById('error').classList.add('hidden');
+        const progressText = document.getElementById('loadingText');
+        progressText.textContent = `Fehler, Wiederholung ${attempt + 1}/${maxRetries} in 2s...`;
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        document.getElementById('loading').classList.add('hidden');
+        const errorDiv = document.getElementById('error');
+        errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
+        errorDiv.classList.remove('hidden');
+      }
+    } finally {
+      if (attempt === maxRetries) {
+        isLoading = false;
+        updateReloadButton(false);
+      }
     }
-    if (!response.success) throw new Error(response.error || 'Fehler beim Laden der Daten');
-    const data = response.data;
-    const users = response.users || [];
-    const labels = response.labels || [];
-    const stats = response.stats || {};
-    groupPath = response.group_path || '';
-    repositoryName = response.repository_name || '';
-    allUsers = users;
-    loadingDiv.classList.add('hidden');
-    document.getElementById('content').classList.remove('hidden');
-    createStatsCards(stats);
-    createTopIssuesList(data);
-    createUserChart(stats.user_stats);
-    createLabelChart(stats.label_stats);
-    createCFDChart(stats.cfd_stats);
-    createLabelTimelineChart(stats.label_timeline_stats);
-    createUserLabelMatrixTable(stats.user_label_matrix);
-    createLeaderboard(stats.user_stats, stats.user_issue_count);
-    createTreeDiagram(data, users);
-  } catch (error) {
-    document.getElementById('loading').classList.add('hidden');
-    const errorDiv = document.getElementById('error');
-    errorDiv.innerHTML = '<strong>Fehler:</strong> ' + error.message;
-    errorDiv.classList.remove('hidden');
-    console.error('Error loading data:', error);
-  } finally {
-    isLoading = false;
-    updateReloadButton(false);
   }
 }
 
