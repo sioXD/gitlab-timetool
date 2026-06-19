@@ -67,7 +67,7 @@
       <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
 
         <!-- Top Issues -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col max-h-[800px] max-md:h-[360px]">
+        <div class="neu-card p-6 max-md:p-5 flex flex-col max-h-[600px] max-md:h-[360px]">
           <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
             <i class="fa-solid fa-fire text-[#6C63FF]"></i> Top Issues nach Zeitaufwand
           </h3>
@@ -83,11 +83,13 @@
         </div>
 
         <!-- CFD Chart -->
-        <div class="neu-card p-6 max-md:p-5 overflow-auto">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-chart-bar text-[#6C63FF]"></i> Issue Bearbeitung
+        <div class="neu-card p-6 max-md:p-5 flex flex-col">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-chart-area text-[#6C63FF]"></i> Issue Bearbeitung
           </h3>
-          <canvas id="cfdChart"></canvas>
+          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
+            <canvas id="cfdChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
         </div>
 
         <!-- Label Chart -->

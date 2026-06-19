@@ -14,89 +14,168 @@ function createCFDChart(cfdStats) {
     return date.toLocaleDateString('de-DE', { month: 'short', day: 'numeric' });
   });
   if (charts.cfdChart) charts.cfdChart.destroy();
-  const ctx = document.getElementById('cfdChart');
+  const canvas = document.getElementById('cfdChart');
+  const ctx = canvas.getContext('2d');
+
+  const gradDone = ctx.createLinearGradient(0, 0, 0, 360);
+  gradDone.addColorStop(0, 'rgba(56, 178, 172, 0.40)');
+  gradDone.addColorStop(0.4, 'rgba(56, 178, 172, 0.15)');
+  gradDone.addColorStop(1, 'rgba(56, 178, 172, 0.01)');
+
+  const gradProgress = ctx.createLinearGradient(0, 0, 0, 360);
+  gradProgress.addColorStop(0, 'rgba(108, 99, 255, 0.40)');
+  gradProgress.addColorStop(0.4, 'rgba(108, 99, 255, 0.15)');
+  gradProgress.addColorStop(1, 'rgba(108, 99, 255, 0.01)');
+
+  const gradTodo = ctx.createLinearGradient(0, 0, 0, 360);
+  gradTodo.addColorStop(0, 'rgba(160, 174, 192, 0.30)');
+  gradTodo.addColorStop(0.4, 'rgba(160, 174, 192, 0.10)');
+  gradTodo.addColorStop(1, 'rgba(160, 174, 192, 0.01)');
+
+  function getTotal(i) {
+    return (cfdStats.done[i] || 0) + (cfdStats.in_progress[i] || 0) + (cfdStats.todo[i] || 0);
+  }
+
   charts.cfdChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: dates,
       datasets: [
         {
-          label: 'Done',
+          label: 'Erledigt',
           data: cfdStats.done,
-          backgroundColor: 'rgba(56, 178, 172, 0.12)',
-          borderColor: 'rgba(56, 178, 172, 0.9)',
-          borderWidth: 2.5,
+          backgroundColor: gradDone,
+          borderColor: '#38B2AC',
+          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointBackgroundColor: 'rgba(56, 178, 172, 0.9)',
-          pointHoverRadius: 5
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: '#38B2AC',
+          pointBorderWidth: 0,
+          pointHoverRadius: 8,
+          pointHoverBackgroundColor: '#38B2AC',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 3,
         },
         {
-          label: 'In Progress',
+          label: 'In Bearbeitung',
           data: cfdStats.in_progress,
-          backgroundColor: 'rgba(108, 99, 255, 0.1)',
-          borderColor: 'rgba(108, 99, 255, 0.85)',
-          borderWidth: 2.5,
+          backgroundColor: gradProgress,
+          borderColor: '#6C63FF',
+          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointBackgroundColor: 'rgba(108, 99, 255, 0.85)',
-          pointHoverRadius: 5
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: '#6C63FF',
+          pointBorderWidth: 0,
+          pointHoverRadius: 8,
+          pointHoverBackgroundColor: '#6C63FF',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 3,
         },
         {
-          label: 'To Do',
+          label: 'Offen',
           data: cfdStats.todo,
-          backgroundColor: 'rgba(139, 149, 165, 0.15)',
-          borderColor: 'rgba(139, 149, 165, 0.8)',
-          borderWidth: 2.5,
+          backgroundColor: gradTodo,
+          borderColor: '#A0AEC0',
+          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointBackgroundColor: 'rgba(139, 149, 165, 0.8)',
-          pointHoverRadius: 5
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: '#A0AEC0',
+          pointBorderWidth: 0,
+          pointHoverRadius: 8,
+          pointHoverBackgroundColor: '#A0AEC0',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 3,
         }
       ]
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
-      interaction: { mode: 'index', intersect: false },
+      maintainAspectRatio: false,
+      animation: {
+        duration: 1000,
+        easing: 'easeOutQuart'
+      },
+      interaction: {
+        mode: 'index',
+        intersect: false,
+        axis: 'x'
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'center',
+          labels: {
+            usePointStyle: true,
+            padding: 20,
+            color: '#3D4852',
+            font: { weight: '600', size: 13 },
+            boxWidth: 10,
+            boxHeight: 10,
+          }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(224, 229, 236, 0.95)',
+          titleColor: '#3D4852',
+          bodyColor: '#6B7280',
+          borderColor: 'rgba(163, 177, 198, 0.4)',
+          borderWidth: 1,
+          cornerRadius: 16,
+          padding: 14,
+          titleFont: { weight: '700', size: 13 },
+          bodyFont: { weight: '500', size: 12 },
+          boxPadding: 6,
+          usePointStyle: true,
+          callbacks: {
+            title: items => items[0].label,
+            label: ctx => {
+              const val = ctx.parsed.y;
+              const total = getTotal(ctx.dataIndex);
+              const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+              return ` ${ctx.dataset.label}: ${val} Issues (${pct}%)`;
+            },
+            footer: items => {
+              const total = getTotal(items[0].dataIndex);
+              return ' Gesamt: ' + total + ' Issues';
+            }
+          }
+        }
+      },
       scales: {
         x: {
-          grid: { color: 'rgba(163, 177, 198, 0.2)' },
-          ticks: { color: '#6B7280', maxRotation: 45, minRotation: 45 },
-          title: { display: true, text: 'Datum', color: '#3D4852', font: { weight: 'bold' } }
+          grid: {
+            color: 'rgba(163, 177, 198, 0.12)',
+            drawBorder: false,
+            drawTicks: false,
+          },
+          ticks: {
+            color: '#8B95A5',
+            maxRotation: 30,
+            font: { size: 11, weight: '500' },
+            padding: 6,
+          },
         },
         y: {
           stacked: true,
           beginAtZero: true,
-          grid: { color: 'rgba(163, 177, 198, 0.2)' },
-          ticks: { color: '#6B7280', stepSize: 1 },
-          title: { display: true, text: 'Anzahl Issues', color: '#3D4852', font: { weight: 'bold' } }
+          grid: {
+            color: 'rgba(163, 177, 198, 0.1)',
+            drawBorder: false,
+            drawTicks: false,
+          },
+          ticks: {
+            color: '#8B95A5',
+            stepSize: 1,
+            font: { size: 11, weight: '500' },
+            padding: 8,
+            crossAlign: 'near',
+          },
         }
-      },
-      plugins: {
-        legend: {
-          display: true, position: 'top',
-          labels: { usePointStyle: true, padding: 15, color: '#3D4852' }
-        },
-        tooltip: {
-          mode: 'index', intersect: false,
-          backgroundColor: '#E0E5EC',
-          titleColor: '#3D4852',
-          bodyColor: '#6B7280',
-          borderColor: 'rgba(163, 177, 198, 0.5)',
-          borderWidth: 1,
-          cornerRadius: 12,
-          padding: 12,
-          callbacks: {
-            title: ctx => ctx[0].label,
-            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + ' Issues',
-            footer: items => 'Gesamt: ' + items.reduce((s, i) => s + i.parsed.y, 0) + ' Issues'
-          }
-        },
-        filler: { propagate: true }
       }
     }
   });
