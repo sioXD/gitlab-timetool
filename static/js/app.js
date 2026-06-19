@@ -218,36 +218,40 @@ function createLabelTimelineChart(labelTimelineStats) {
     type: 'line',
     data: { labels: dates, datasets },
     options: {
-      responsive: true, maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: false,
       scales: {
         x: {
-          grid: { color: 'rgba(163, 177, 198, 0.2)' },
-          ticks: { color: '#6B7280', maxRotation: 45, minRotation: 45 },
-          title: { display: true, text: 'Datum', color: '#3D4852', font: { weight: 'bold' } }
+          grid: { color: 'rgba(163, 177, 198, 0.12)', drawBorder: false, drawTicks: false },
+          ticks: { color: '#8B95A5', maxRotation: 30, font: { size: 11, weight: '500' } },
+          title: { display: true, text: 'Datum', color: '#3D4852', font: { weight: '600', size: 12 } }
         },
         y: {
           beginAtZero: true,
-          grid: { color: 'rgba(163, 177, 198, 0.2)' },
-          ticks: { color: '#6B7280' },
-          title: { display: true, text: 'Kumulierte Stunden', color: '#3D4852', font: { weight: 'bold' } }
+          grid: { color: 'rgba(163, 177, 198, 0.1)', drawBorder: false, drawTicks: false },
+          ticks: { color: '#8B95A5', font: { size: 11, weight: '500' } },
+          title: { display: true, text: 'Kumulierte Stunden', color: '#3D4852', font: { weight: '600', size: 12 } }
         }
       },
       plugins: {
         legend: {
           display: true, position: 'top',
-          labels: { usePointStyle: true, padding: 15, color: '#3D4852' }
+          labels: { usePointStyle: true, padding: 20, color: '#3D4852', font: { weight: '600', size: 13 }, boxWidth: 10, boxHeight: 10 }
         },
         tooltip: {
-          backgroundColor: '#E0E5EC',
+          mode: 'index', intersect: false,
+          backgroundColor: 'rgba(224, 229, 236, 0.95)',
           titleColor: '#3D4852',
           bodyColor: '#6B7280',
-          borderColor: 'rgba(163, 177, 198, 0.5)',
+          borderColor: 'rgba(163, 177, 198, 0.4)',
           borderWidth: 1,
-          cornerRadius: 12,
-          padding: 12,
+          cornerRadius: 16,
+          padding: 14,
+          titleFont: { weight: '700', size: 13 },
+          bodyFont: { weight: '500', size: 12 },
+          usePointStyle: true,
           callbacks: {
-            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + ' h',
-            footer: items => 'Gesamt: ' + items.reduce((s, i) => s + i.parsed.y, 0).toFixed(2) + ' h'
+            label: ctx => ' ' + ctx.dataset.label + ': ' + ctx.parsed.y + ' h',
+            footer: items => ' Gesamt: ' + items.reduce((s, i) => s + i.parsed.y, 0).toFixed(2) + ' h'
           }
         }
       },
@@ -340,7 +344,7 @@ function createLabelChart(labelStats) {
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: false,
       indexAxis: 'y',
       scales: {
         x: {

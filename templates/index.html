@@ -93,19 +93,23 @@
         </div>
 
         <!-- Label Chart -->
-        <div class="neu-card p-6 max-md:p-5 overflow-auto">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+        <div class="neu-card p-6 max-md:p-5 flex flex-col">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
             <i class="fa-solid fa-tags text-[#6C63FF]"></i> Zeitaufwand nach Labels
           </h3>
-          <canvas id="labelChart"></canvas>
+          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
+            <canvas id="labelChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
         </div>
 
         <!-- Label Timeline -->
-        <div class="neu-card p-6 max-md:p-5 overflow-auto">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+        <div class="neu-card p-6 max-md:p-5 flex flex-col">
+          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
             <i class="fa-solid fa-chart-line text-[#6C63FF]"></i> Zeitentwicklung nach Kategorien
           </h3>
-          <canvas id="labelTimelineChart"></canvas>
+          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
+            <canvas id="labelTimelineChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
         </div>
 
         <!-- Reports -->
