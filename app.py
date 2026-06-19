@@ -1118,7 +1118,7 @@ Wichtig: Gib NUR das HTML zurück, ohne Markdown-Umschließung. Kein ```html vor
 
         client = genai.Client(
             api_key=os.getenv("GEMINI_API_KEY"),
-            http_options={'timeout': 25000}
+            http_options={'timeout': 120000}
         )
 
         try:
