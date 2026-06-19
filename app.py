@@ -16,7 +16,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from google import genai
 import threading
-import concurrent.futures
 import time
 
 load_dotenv()
@@ -1102,23 +1101,24 @@ Das Projekt ist eine Lernplattform mit folgenden Epics (Baumstruktur mit aufgewe
 
 Wichtig: Gib NUR das HTML zurück, ohne Markdown-Umschließung. Kein ```html vorher oder nachher."""
 
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            http_options={'timeout': 25000}
+        )
 
         try:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    client.models.generate_content,
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
-                response = future.result(timeout=25)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt
+            )
             app.logger.info(f"Gemini response received")
-        except concurrent.futures.TimeoutError:
-            app.logger.error("Gemini API timeout after 25s")
-            return {'success': False, 'error': 'Gemini API timeout - request took too long'}
         except Exception as e:
-            app.logger.error(f"Error in AI response: {e}")
-            return {'success': False, 'error': f"Gemini API error: {e}"}
+            err_str = str(e)
+            if 'timeout' in err_str.lower() or 'deadline' in err_str.lower():
+                app.logger.error(f"Gemini API timeout: {err_str[:200]}")
+                return {'success': False, 'error': 'Gemini API timeout - request took too long'}
+            app.logger.error(f"Error in AI response: {err_str[:500]}")
+            return {'success': False, 'error': f"Gemini API error: {err_str[:300]}"}
 
         html_report = response.text
 
