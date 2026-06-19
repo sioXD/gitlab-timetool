@@ -381,6 +381,7 @@ function createLabelChart(labelStats) {
 async function loadData(days = null, forceRefresh = false) {
   if (isLoading) return;
   const maxRetries = 5;
+  let success = false;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       isLoading = true;
@@ -438,6 +439,7 @@ async function loadData(days = null, forceRefresh = false) {
       createUserLabelMatrixTable(stats.user_label_matrix);
       createLeaderboard(stats.user_stats, stats.user_issue_count);
       createTreeDiagram(data, users);
+      success = true;
       return;
     } catch (error) {
       console.error(`Error loading data (attempt ${attempt}/${maxRetries}):`, error);
@@ -453,7 +455,7 @@ async function loadData(days = null, forceRefresh = false) {
         errorDiv.classList.remove('hidden');
       }
     } finally {
-      if (attempt === maxRetries) {
+      if (success || attempt === maxRetries) {
         isLoading = false;
         updateReloadButton(false);
       }
@@ -464,6 +466,7 @@ async function loadData(days = null, forceRefresh = false) {
 async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
   if (isLoading) return;
   const maxRetries = 3;
+  let success = false;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       isLoading = true;
@@ -522,6 +525,7 @@ async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
       createUserLabelMatrixTable(stats.user_label_matrix);
       createLeaderboard(stats.user_stats, stats.user_issue_count);
       createTreeDiagram(data, users);
+      success = true;
       return;
     } catch (error) {
       console.error(`Error loading data (attempt ${attempt}/${maxRetries}):`, error);
@@ -537,7 +541,7 @@ async function loadDataWithDateRange(startDate, endDate, forceRefresh = false) {
         errorDiv.classList.remove('hidden');
       }
     } finally {
-      if (attempt === maxRetries) {
+      if (success || attempt === maxRetries) {
         isLoading = false;
         updateReloadButton(false);
       }
