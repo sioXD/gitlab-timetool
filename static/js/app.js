@@ -716,11 +716,12 @@ function createTreeDiagram(data, users) {
 
   const repoName = groupPath.split('/').pop() || 'Repository';
   let html = '<div class="flex flex-col gap-2">';
-  html += `<div class="rounded-[32px] p-5" style="background:linear-gradient(135deg, #6C63FF, #8B84FF); color:white;">
+  html += `<div class="rounded-[32px] p-5 cursor-pointer" style="background:linear-gradient(135deg, #6C63FF, #8B84FF); color:white;" onclick="toggleEpic('root')">
     <div class="font-display font-bold text-lg"><i class="fa-solid fa-box"></i> ${repoName}</div>
     <div class="text-sm mt-1 opacity-85">${root.Titel}</div>
     <div class="text-sm font-medium mt-1 opacity-75">${root['Zeitaufwand (h)']} h / ${root['gesch. Zeitaufwand (h)']} h</div>
   </div>`;
+  html += `<div class="hidden flex-col gap-3 mt-3 ml-5" id="epic-root">`;
   if (topLevelEpics.length > 0) {
     html += '<div class="flex flex-col ml-4 pl-4 gap-2" style="border-left:2px solid rgba(163,177,198,0.4)">';
     topLevelEpics.forEach(epic => {
