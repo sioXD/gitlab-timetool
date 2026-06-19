@@ -55,18 +55,28 @@ app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 app.logger.info('GitLab Time Tracking Dashboard startup')
 
-# Initialize scheduler for automated reports
-scheduler = BackgroundScheduler()
-scheduler.start()
+# Initialize scheduler for automated reports (only in main process, not gunicorn workers)
+_scheduler_started = False
+def _ensure_scheduler():
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.start()
+        scheduler.add_job(
+            func=lambda: generate_weekly_report(),
+            trigger=CronTrigger(day_of_week='tue', hour=8, minute=0),
+            id='weekly_report',
+            name='Generate weekly project status report',
+            replace_existing=True
+        )
+        _scheduler_started = True
+        app.logger.info("Scheduler started successfully")
+    except Exception as e:
+        app.logger.warning(f"Scheduler could not be started (expected with gunicorn workers): {e}")
 
-# Schedule weekly report generation (every Tuesday at 8:00 AM)
-scheduler.add_job(
-    func=lambda: generate_weekly_report(),
-    trigger=CronTrigger(day_of_week='tue', hour=8, minute=0),
-    id='weekly_report',
-    name='Generate weekly project status report',
-    replace_existing=True
-)
+_ensure_scheduler()
 
 # Global variables for data
 csv_rows = []
@@ -967,13 +977,18 @@ def _collect_epic_hierarchy(e, indent=0):
 def generate_weekly_report():
     """Generate weekly project status report using Google Gemini API"""
     try:
-        _update_progress("start", 0, "Loading data...")
+        # Start data refresh (load_data manages its own progress)
         load_data(force_refresh=True)
-        for _ in range(120):
-            with _load_lock:
-                if not _load_progress["loading"]:
-                    break
-            time.sleep(1)
+
+        # If a refresh was triggered, wait for it to finish
+        with _load_lock:
+            is_waiting = _load_progress["loading"]
+        if is_waiting:
+            for _ in range(120):
+                with _load_lock:
+                    if not _load_progress["loading"]:
+                        break
+                time.sleep(1)
 
         with _load_lock:
             load_error = _load_progress["error"]
@@ -1158,10 +1173,11 @@ Wichtig: Gib NUR das HTML zurück, ohne Markdown-Umschließung. Kein ```html vor
         }
 
     except Exception as e:
-        app.logger.error(f"Error generating weekly report: {str(e)}\n{traceback.format_exc()}")
+        tb = traceback.format_exc()
+        app.logger.error(f"Error generating weekly report: {str(e)}\n{tb}")
         print(f"[ERROR] Weekly report generation: {e}")
         traceback.print_exc()
-        return {'success': False, 'error': str(e)}
+        return {'success': False, 'error': str(e), 'traceback': tb}
 
 @app.route("/api/generate-report", methods=['POST'])
 def api_generate_report():
@@ -1170,8 +1186,9 @@ def api_generate_report():
         result = generate_weekly_report()
         return jsonify(result)
     except Exception as e:
-        app.logger.error(f"Error in /api/generate-report: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        tb = traceback.format_exc()
+        app.logger.error(f"Error in /api/generate-report: {e}\n{tb}")
+        return jsonify({'success': False, 'error': str(e), 'traceback': tb}), 500
 
 @app.route("/api/reports")
 def list_reports():
