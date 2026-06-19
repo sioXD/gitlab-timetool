@@ -821,11 +821,13 @@ async function generateReport() {
   btn.innerHTML = '<i class="fa-solid fa-hourglass-half"></i> Bericht wird erstellt...';
   try {
     const response = await fetch('/api/generate-report', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    console.debug('Report generation response:', response);
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Server error: ${response.status} - ${errorText}`);
     }
     const result = await response.json();
+    console.debug('Report generation result in JSON:', result);
     if (result.success) {
       alert('✅ Bericht erfolgreich erstellt!');
       loadReports();
