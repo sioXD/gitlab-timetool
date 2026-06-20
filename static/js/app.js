@@ -599,28 +599,28 @@ function createStatsCards(stats) {
   let progressCard = '';
   if (currentFilter === null && currentDateRange === null) {
     progressCard = `
-      <div class="neu-card p-8 text-center">
-        <p class="neu-chip mb-3 inline-flex">Fortschritt</p>
-        <div class="neu-stat-value text-4xl text-[#6C63FF] mt-2">${stats.total_estimated > 0 ? Math.round((stats.total_spent / stats.total_estimated) * 100) : 0}%</div>
+      <div class="neu-card p-5 text-center">
+        <p class="neu-chip mb-2 inline-flex text-xs">Fortschritt</p>
+        <div class="neu-stat-value text-2xl sm:text-3xl text-[#6C63FF] mt-1">${stats.total_estimated > 0 ? Math.round((stats.total_spent / stats.total_estimated) * 100) : 0}%</div>
       </div>`;
   } else {
     const createdCount = stats.creation_stats
       ? Object.values(stats.creation_stats.user_data).reduce((sum, counts) => sum + counts.reduce((a, b) => a + b, 0), 0)
       : 0;
     progressCard = `
-      <div class="neu-card p-8 text-center">
-        <p class="neu-chip mb-3 inline-flex">Erstellte Issues</p>
-        <div class="neu-stat-value text-4xl text-[#6C63FF] mt-2">${createdCount}</div>
+      <div class="neu-card p-5 text-center">
+        <p class="neu-chip mb-2 inline-flex text-xs">Erstellte Issues</p>
+        <div class="neu-stat-value text-2xl sm:text-3xl text-[#6C63FF] mt-1">${createdCount}</div>
       </div>`;
   }
   grid.innerHTML = `
-    <div class="neu-card p-8 text-center">
-      <p class="neu-chip mb-3 inline-flex">Gesamte aufgewendete Zeit</p>
-      <div class="neu-stat-value text-4xl text-[#3D4852] mt-2">${stats.total_spent} h</div>
+    <div class="neu-card p-5 text-center">
+      <p class="neu-chip mb-2 inline-flex text-xs">Gesamte aufgewendete Zeit</p>
+      <div class="neu-stat-value text-2xl sm:text-3xl text-[#3D4852] mt-1">${stats.total_spent} h</div>
     </div>
-    <div class="neu-card p-8 text-center">
-      <p class="neu-chip mb-3 inline-flex">Gesamte geschätzte Zeit</p>
-      <div class="neu-stat-value text-4xl text-[#3D4852] mt-2">${stats.total_estimated} h</div>
+    <div class="neu-card p-5 text-center">
+      <p class="neu-chip mb-2 inline-flex text-xs">Gesamte geschätzte Zeit</p>
+      <div class="neu-stat-value text-2xl sm:text-3xl text-[#3D4852] mt-1">${stats.total_estimated} h</div>
     </div>
     ${progressCard}
   `;

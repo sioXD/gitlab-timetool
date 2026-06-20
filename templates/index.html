@@ -14,11 +14,11 @@
   <div class="max-w-[1600px] mx-auto flex flex-col gap-5">
 
     <!-- Header -->
-    <header class="neu-card p-6 max-md:p-4 flex justify-between items-center gap-4 flex-wrap">
-      <h1 class="font-display font-extrabold text-2xl max-md:text-xl tracking-tight text-[#3D4852]">
+    <header class="neu-card px-6 py-4 flex justify-between items-center gap-4 flex-nowrap">
+      <h1 class="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-[#3D4852] whitespace-nowrap">
         <i class="fa-regular fa-clock text-[#6C63FF]"></i> GitLab Time Tracking
       </h1>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-shrink-0">
         <button id="reloadBtn" onclick="reloadData()" class="neu-btn-icon" aria-label="Daten neu laden">
           <i class="fa-solid fa-arrows-rotate"></i>
         </button>
@@ -26,22 +26,22 @@
     </header>
 
     <!-- Filter Bar -->
-    <div id="filterBar" class="neu-card p-5 max-md:p-3 flex gap-2 items-center flex-wrap">
-      <span class="font-display font-semibold text-sm text-[#3D4852] mr-1">
+    <div id="filterBar" class="neu-card px-4 py-3 flex gap-1.5 sm:gap-2 items-center flex-nowrap overflow-x-auto">
+      <span class="font-display font-semibold text-xs sm:text-sm text-[#3D4852] mr-0.5 whitespace-nowrap">
         <i class="fa-regular fa-calendar text-[#6C63FF]"></i> Zeitraum:
       </span>
-      <button onclick="filterByDays(7, this)" class="neu-period-btn active" data-days="7">Letzte 7 Tage</button>
-      <button onclick="filterByDays(14, this)" class="neu-period-btn" data-days="14">Letzte 14 Tage</button>
-      <button onclick="filterByDays(30, this)" class="neu-period-btn" data-days="30">Letzte 30 Tage</button>
-      <button onclick="filterByDays(null, this)" class="neu-period-btn" data-days="all">Alle Tage</button>
+      <button onclick="filterByDays(7, this)" class="neu-period-btn active whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3" data-days="7">7 Tage</button>
+      <button onclick="filterByDays(14, this)" class="neu-period-btn whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3" data-days="14">14 Tage</button>
+      <button onclick="filterByDays(30, this)" class="neu-period-btn whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3" data-days="30">30 Tage</button>
+      <button onclick="filterByDays(null, this)" class="neu-period-btn whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3" data-days="all">Alle</button>
 
-      <div class="ml-auto flex gap-2.5 items-center max-md:ml-0 max-md:w-full max-md:mt-2">
-        <label class="text-sm text-[#6B7280] font-medium">Von:</label>
-        <input type="date" id="startDate" class="neu-input px-3 py-2 text-sm w-[140px] max-md:w-full">
-        <label class="text-sm text-[#6B7280] font-medium">Bis:</label>
-        <input type="date" id="endDate" class="neu-input px-3 py-2 text-sm w-[140px] max-md:w-full">
-        <button onclick="filterByDateRange()" class="neu-btn-primary px-5 py-2 text-sm font-semibold inline-flex items-center gap-2">
-          <i class="fa-regular fa-calendar"></i> Anwenden
+      <div class="flex gap-1 sm:gap-2.5 items-center flex-shrink-0 ml-auto">
+        <label class="text-xs sm:text-sm text-[#6B7280] font-medium whitespace-nowrap">Von:</label>
+        <input type="date" id="startDate" class="neu-input px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm w-[110px] sm:w-[140px]">
+        <label class="text-xs sm:text-sm text-[#6B7280] font-medium whitespace-nowrap">Bis:</label>
+        <input type="date" id="endDate" class="neu-input px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm w-[110px] sm:w-[140px]">
+        <button onclick="filterByDateRange()" class="neu-btn-primary px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-1 sm:gap-2 whitespace-nowrap">
+          <i class="fa-regular fa-calendar"></i> OK
         </button>
       </div>
     </div>
@@ -60,97 +60,102 @@
     <!-- Content -->
     <div id="content" class="hidden flex flex-col gap-5">
 
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5" id="statsGrid"></div>
+      <!-- Stats Cards - immer 3 nebeneinander -->
+      <div class="grid grid-cols-3 gap-5" id="statsGrid"></div>
 
-      <!-- Charts Grid -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
-
+      <!-- Reihe 2: Issues, Benutzer, Issue Bearbeitung -->
+      <div class="grid grid-cols-3 gap-5">
         <!-- Top Issues -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col max-h-[600px] max-md:h-[360px]">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-fire text-[#6C63FF]"></i> Top Issues nach Zeitaufwand
+        <div class="neu-card p-5 flex flex-col max-h-[600px] max-md:max-h-[360px]">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-fire text-[#6C63FF]"></i> Top Issues
           </h3>
           <ul class="list-none p-0 m-0 flex-1 overflow-y-auto min-h-0" id="topIssuesList"></ul>
         </div>
 
         <!-- User Chart -->
-        <div class="neu-card p-6 max-md:p-5 overflow-clip">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-users text-[#6C63FF]"></i> Zeitverteilung nach Benutzer
+        <div class="neu-card p-5 overflow-clip flex flex-col">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-users text-[#6C63FF]"></i> Benutzer
           </h3>
-          <canvas id="userChart"></canvas>
-        </div>
-
-        <!-- CFD Chart -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-chart-area text-[#6C63FF]"></i> Issue Bearbeitung
-          </h3>
-          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
-            <canvas id="cfdChart" class="absolute inset-0 w-full h-full"></canvas>
+          <div class="flex-1 min-h-0">
+            <canvas id="userChart" class="max-h-[300px]"></canvas>
           </div>
         </div>
 
-        <!-- Label Chart -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-tags text-[#6C63FF]"></i> Zeitaufwand nach Labels
+        <!-- CFD Chart -->
+        <div class="neu-card p-5 flex flex-col">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-chart-area text-[#6C63FF]"></i> Issue Bearbeitung
           </h3>
-          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
+          <div class="flex-1 min-h-[200px] sm:min-h-[300px] relative">
+            <canvas id="cfdChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reihe 3: Labels, Kategorien, Berichte -->
+      <div class="grid grid-cols-3 gap-5">
+        <!-- Label Chart -->
+        <div class="neu-card p-5 flex flex-col">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-tags text-[#6C63FF]"></i> Labels
+          </h3>
+          <div class="flex-1 min-h-[200px] sm:min-h-[300px] relative">
             <canvas id="labelChart" class="absolute inset-0 w-full h-full"></canvas>
           </div>
         </div>
 
         <!-- Label Timeline -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-chart-line text-[#6C63FF]"></i> Zeitentwicklung nach Kategorien
+        <div class="neu-card p-5 flex flex-col">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-chart-line text-[#6C63FF]"></i> Kategorien
           </h3>
-          <div class="flex-1 min-h-[300px] max-md:min-h-[200px] relative">
+          <div class="flex-1 min-h-[200px] sm:min-h-[300px] relative">
             <canvas id="labelTimelineChart" class="absolute inset-0 w-full h-full"></canvas>
           </div>
         </div>
 
         <!-- Reports -->
-        <div class="neu-card p-6 max-md:p-5 flex flex-col h-[450px] max-md:h-[360px]">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-file-lines text-[#6C63FF]"></i> Wöchentliche Berichte
+        <div class="neu-card p-5 flex flex-col h-[400px] max-md:h-[320px]">
+          <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+            <i class="fa-solid fa-file-lines text-[#6C63FF]"></i> Berichte
           </h3>
-          <div class="flex flex-col gap-4 flex-1 min-h-0">
-            <div class="flex justify-between items-center flex-wrap gap-3 flex-shrink-0">
-              <button onclick="generateReport()" class="neu-btn-primary px-5 py-2.5 text-sm font-semibold inline-flex items-center gap-2" id="generateReportBtn">
-                <i class="fa-regular fa-pen-to-square"></i> Bericht jetzt erstellen
+          <div class="flex flex-col gap-3 flex-1 min-h-0">
+            <div class="flex justify-between items-center gap-2 flex-shrink-0 flex-wrap">
+              <button onclick="generateReport()" class="neu-btn-primary px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 flex-shrink-0" id="generateReportBtn">
+                <i class="fa-regular fa-pen-to-square"></i> Erstellen
               </button>
-              <p class="text-xs text-[#8B95A5] italic m-0 flex items-center gap-1.5">
-                <i class="fa-regular fa-clock"></i> Automatische Berichte jeden Dienstag um 8:00 Uhr
+              <p class="text-[10px] sm:text-xs text-[#8B95A5] italic m-0 flex items-center gap-1">
+                <i class="fa-regular fa-clock"></i> Di. 8:00
               </p>
             </div>
-            <div id="reportsList" class="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 overflow-y-auto min-h-0 pr-1">
-              <p class="text-center py-6 text-[#6B7280]">Lade Berichte...</p>
+            <div id="reportsList" class="grid grid-cols-1 gap-2 overflow-y-auto min-h-0">
+              <p class="text-center py-4 text-[#6B7280] text-xs">Lade Berichte...</p>
             </div>
           </div>
         </div>
-
-        <!-- User-Label Matrix -->
-        <div class="neu-card p-6 max-md:p-5 overflow-auto col-span-3">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-puzzle-piece text-[#6C63FF]"></i> Zeitmatrix: Mitarbeiter und Überkategorien
-          </h3>
-          <div id="userLabelMatrixContainer" class="overflow-x-auto"></div>
-        </div>
-        <!-- Leaderboard -->
-        <div class="neu-card p-6 max-md:p-5 overflow-auto col-span-3">
-          <h3 class="font-display font-bold text-base text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
-            <i class="fa-solid fa-trophy text-[#6C63FF]"></i> Rangliste
-          </h3>
-          <div id="leaderboardContainer"></div>
-        </div>
       </div>
 
-      <!-- Tree Diagram -->
-      <div class="neu-card p-6 max-md:p-5 my-2">
-        <h2 class="font-display font-bold text-xl text-[#3D4852] mb-5 pb-3 flex-shrink-0" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+      <!-- User-Label Matrix (volle Breite) -->
+      <div class="neu-card p-5 overflow-auto">
+        <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+          <i class="fa-solid fa-puzzle-piece text-[#6C63FF]"></i> Zeitmatrix
+        </h3>
+        <div id="userLabelMatrixContainer" class="overflow-x-auto"></div>
+      </div>
+
+      <!-- Leaderboard / Rangliste (volle Breite) -->
+      <div class="neu-card p-5 overflow-auto">
+        <h3 class="font-display font-bold text-sm sm:text-base text-[#3D4852] mb-3 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
+          <i class="fa-solid fa-trophy text-[#6C63FF]"></i> Rangliste
+        </h3>
+        <div id="leaderboardContainer"></div>
+      </div>
+
+      <!-- Projekt Struktur (volle Breite) -->
+      <div class="neu-card p-5">
+        <h2 class="font-display font-bold text-base sm:text-xl text-[#3D4852] mb-4 pb-3" style="border-bottom:2px solid rgba(163,177,198,0.3)">
           <i class="fa-solid fa-tree text-[#6C63FF]"></i> Projekt Struktur
         </h2>
         <div class="overflow-auto max-h-[600px]" id="treeContainer"></div>
